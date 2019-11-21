@@ -5,18 +5,15 @@ import SipClient from '../lib/SipClient';
 import Video from './Video';
 import TopBar from './TopBar';
 
-import Avatar from '@material-ui/core/Avatar';
-import Button from '@material-ui/core/Button';
-import VideoCamIcon from '@material-ui/icons/Videocam';
-import Typography from '@material-ui/core/Typography';
-import Container from '@material-ui/core/Container';
-import Grid from '@material-ui/core/Grid';
-import Drawer from '@material-ui/core/Drawer';
-import IconButton from '@material-ui/core/IconButton';
-import ScreenShareIcon from '@material-ui/icons/ScreenShare';
-import StopScreenShareIcon from '@material-ui/icons/StopScreenShare';
-
-import { ArrowBack as BackIcon } from '@material-ui/icons';
+import { Avatar, Button, Typography, Container, Grid, Drawer, Snackbar, IconButton } from '@material-ui/core';
+import {
+    ArrowBack as BackIcon,
+    Videocam as VideoCamIcon,
+    ScreenShare as ScreenShareIcon,
+    StopScreenShare as StopScreenShareIcon,
+    Error as ErrorIcon,
+    Close as CloseIcon
+} from '@material-ui/icons';
 
 const styles = theme => ({
     '@global': {
@@ -57,7 +54,16 @@ const styles = theme => ({
         right: 0,
         overflow: 'hidden',
         paddingRight: '15px'
-    }
+    },
+    errorMessage: {
+        display: 'flex',
+        alignItems: 'center',
+    },
+    errorIcon: {
+        fontSize: 20,
+        opacity: 0.9,
+        marginRight: theme.spacing(1),
+    },
 });
 
 
@@ -72,46 +78,58 @@ class VideoRoom extends Component {
             selectedStream: null,
             session: null,
             screenShareSession: null,
-            screensharing: false
+            screensharing: false,
+            snackOpen: false,
+            errorMessage: '',
+            onSnackCloseAction: null
         };
 
-        this._sip = new SipClient({
-            name             : props.name,
-            sipUri           : props.sipUri,
-            sipPassword      : props.password,
-            wsUri            : props.serverWssUri,
-            pcConfig         : {
-                iceServers: [
-                    {
-                        urls: [ 'stun:stun.l.google.com:19302']
-                    }
-                ]
-            }
-        });
+        try {
+            this._sip = new SipClient({
+                name             : props.name,
+                sipUri           : props.sipUri,
+                sipPassword      : props.password,
+                wsUri            : props.serverWssUri,
+                pcConfig         : {
+                    iceServers: [
+                        {
+                            urls: [ 'stun:stun.l.google.com:19302']
+                        }
+                    ]
+                }
+            });
+        } catch(err) {
+            this.setState({ snackOpen: true, errorMessage: err.message });
+        }
     }
 
     async getScreenShareMedia() {
-        let stream = await navigator.mediaDevices.getDisplayMedia({
-            video: {
-                cursor: 'always'
-            }
-        });
+        let stream;
+        try {
+            stream = await navigator.mediaDevices.getDisplayMedia({
+                video: {
+                    cursor: 'always'
+                }
+            });
 
-        this.setState((prevState) => {
-            let localStreams = prevState.localStreams;
+            this.setState((prevState) => {
+                let localStreams = prevState.localStreams;
 
-            //find the previous one and delete it
-            localStreams.delete('screen-share');
-            localStreams.set('screen-share', stream);
-            return {
-                ...prevState,
-                localStreams
-            }
-        });
+                //find the previous one and delete it
+                localStreams.delete('screen-share');
+                localStreams.set('screen-share', stream);
+                return {
+                    ...prevState,
+                    localStreams
+                }
+            });
 
-        stream.onremovetrack = () => {
-            this._stopScreenShare();
-        };
+            stream.onremovetrack = () => {
+                this._stopScreenShare();
+            };
+        } catch(err) {
+            this.setState({ snackOpen: true, errorMessage: err.message });
+        }
 
         return stream;
     }
@@ -139,18 +157,24 @@ class VideoRoom extends Component {
             constraints.video.deviceId = { exact: chosenVideoInput };
         }
 
-        let stream = await navigator.mediaDevices.getUserMedia(constraints);
-        this.setState((prevState) => {
-            let localStreams = prevState.localStreams;
+        let stream;
+        try {
+            stream = await navigator.mediaDevices.getUserMedia(constraints);
 
-            //find the previous one and delete it
-            localStreams.delete('local-camera');
-            localStreams.set('local-camera', stream);
-            return {
-                ...prevState,
-                localStreams
-            }
-        });
+            this.setState((prevState) => {
+                let localStreams = prevState.localStreams;
+
+                //find the previous one and delete it
+                localStreams.delete('local-camera');
+                localStreams.set('local-camera', stream);
+                return {
+                    ...prevState,
+                    localStreams
+                }
+            });
+        } catch (err) {
+            this.setState({ snackOpen: true, errorMessage: err.message });
+        }
 
         return stream;
     }
@@ -197,6 +221,20 @@ class VideoRoom extends Component {
                 }
             });
         });
+
+        session.on('terminate', (endInfo) => {
+            if (session.status === 'failed') {
+                this.setState({
+                    snackOpen: true,
+                    errorMessage: endInfo.cause,
+                    onSnackCloseAction: () => {
+                        console.log()
+                        this.props.history.push('/');
+                    }
+                });
+
+            }
+        })
     }
 
     _call() {
@@ -364,8 +402,21 @@ class VideoRoom extends Component {
         return streamRows;
     }
 
+    _handleSnackClose(event, reason) {
+        if (reason === 'clickaway') {
+          return;
+        }
+
+        let onSnackCloseAction = this.state.onSnackCloseAction;
+        this.setState({snackOpen: false, errorMessage: '', onSnackCloseAction: null});
+        if (onSnackCloseAction) {
+            onSnackCloseAction();
+        }
+
+    };
+
     render() {
-        let { localStreams, streams, connect, screensharing,  } = this.state;
+        let { localStreams, streams, connect, screensharing, snackOpen, errorMessage } = this.state;
         let { classes, history }  = this.props;
 
         if (!connect) {
@@ -408,6 +459,27 @@ class VideoRoom extends Component {
                 <Drawer anchor="right" open={false}>
                     Chat / Live transcription
                 </Drawer>
+                <Snackbar
+                    anchorOrigin={{ vertical: 'bottom', horizontal: 'center' }}
+                    open={snackOpen}
+                    autoHideDuration={6000}
+                    onClose={this._handleSnackClose.bind(this)}
+                    ContentProps={{
+                        'aria-describedby': 'message-id',
+                    }}
+                    message={<span id='message-id' className={classes.errorMessage}><ErrorIcon className={classes.errorIcon}/>{errorMessage}</span>}
+                    action={[
+                        <IconButton
+                            key="close"
+                            aria-label="close"
+                            color="inherit"
+                            className={classes.close}
+                            onClick={this._handleSnackClose.bind(this)}
+                        >
+                            <CloseIcon />
+                        </IconButton>,
+                    ]}
+                />
             </div>
         );
     }

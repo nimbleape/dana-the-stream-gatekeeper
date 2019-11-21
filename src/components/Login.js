@@ -38,7 +38,7 @@ const useStyles = makeStyles(theme => ({
         fontSize: 20,
         opacity: 0.9,
         marginRight: theme.spacing(1),
-      },
+    },
 }));
 
 function Login(props) {
@@ -63,7 +63,7 @@ function Login(props) {
         }
 
         setOpen(false);
-      };
+    };
 
     return (
         <Fragment>
@@ -136,7 +136,7 @@ function Login(props) {
                         >
                             <CloseIcon />
                         </IconButton>,
-                      ]}
+                    ]}
                 />
             </Container>
             <Footer />

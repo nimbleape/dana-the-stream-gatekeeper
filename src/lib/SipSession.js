@@ -29,8 +29,7 @@ export default class SipSession extends events.EventEmitter {
 		// End cause.
 		this._endInfo = {
 			originator  : null,
-			cause       : null,
-			description : null
+			cause       : null
 		};
 
 		// Muted status
@@ -81,12 +80,10 @@ export default class SipSession extends events.EventEmitter {
 
 		this._rtcSession.on('failed', (data) => {
 			let { originator, cause } = data;
-			let description;
 
 			this._endInfo = {
 				originator  : originator,
 				cause       : cause,
-				description : description
 			};
 
 			this._status = 'failed';
@@ -97,12 +94,10 @@ export default class SipSession extends events.EventEmitter {
 
 		this._rtcSession.on('ended', (data) => {
 			let { originator, cause } = data;
-			let description;
 
 			this._endInfo = {
 				originator  : originator,
 				cause       : cause,
-				description : description
 			};
 
 			this._status = 'ended';
@@ -213,10 +208,12 @@ export default class SipSession extends events.EventEmitter {
 	}
 
 	terminate(sipCode, sipReason) {
-		this._rtcSession.terminate({
-			status_code   : sipCode,
-			reason_phrase : sipReason
-		});
+		if (!this.terminated) {
+			this._rtcSession.terminate({
+				status_code   : sipCode,
+				reason_phrase : sipReason
+			});
+		}
 	}
 
 	mute() {

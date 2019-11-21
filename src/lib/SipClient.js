@@ -40,10 +40,6 @@ export default class SipClient extends events.EventEmitter {
             this.emit('disconnected', error);
         });
 
-        this._ua.on('registrationFailed', (data) => {
-            this.emit('registrationFailed', data.cause);
-        });
-
         this._ua.on('newRTCSession', (data) => {
             let rtcSession = data.session;
 
