@@ -12,7 +12,9 @@ import {
     ScreenShare as ScreenShareIcon,
     StopScreenShare as StopScreenShareIcon,
     Error as ErrorIcon,
-    Close as CloseIcon
+    Close as CloseIcon,
+    Mic as MicIcon,
+    MicOff as MicOffIcon,
 } from '@material-ui/icons';
 
 const styles = theme => ({
@@ -81,7 +83,9 @@ class VideoRoom extends Component {
             screensharing: false,
             snackOpen: false,
             errorMessage: '',
-            onSnackCloseAction: null
+            onSnackCloseAction: null,
+            remoteAudioStream: null,
+            remoteAudioMuted: false
         };
 
         try {
@@ -186,14 +190,23 @@ class VideoRoom extends Component {
             this.setState({ session });
         }
         session.on('newStream', (stream) => {
-            this.setState((prevState) => {
-                let streams = prevState.streams;
-                streams.set(stream.id, stream);
-                return {
-                    ...prevState,
-                    streams
-                }
-            });
+
+            //theres only one audio track from asterisk
+            if (stream.getAudioTracks().length) {
+                this.setState({remoteAudioStream: stream});
+                this._remoteAudio = new Audio();
+                this._remoteAudio.srcObject = this.state.remoteAudioStream;
+                this._remoteAudio.play();
+            } else {
+                this.setState((prevState) => {
+                    let streams = prevState.streams;
+                    streams.set(stream.id, stream);
+                    return {
+                        ...prevState,
+                        streams
+                    }
+                });
+            }
 
             stream.onremovetrack = () => {
                 console.log('track ended');
@@ -362,7 +375,7 @@ class VideoRoom extends Component {
         let streamComponents = [];
         for (let i = 0; i < number; i++) {
             let stream = streamsIterator.next().value;
-            streamComponents.push(<Grid item key={i}><Video stream={stream} muted={false} enableControls={true} width={opts.size} height={opts.size} inGrid={opts.inGrid}/></Grid>);
+            streamComponents.push(<Grid item key={i}><Video stream={stream} muted={opts.muted} enableControls={true} width={opts.size} height={opts.size} inGrid={opts.inGrid}/></Grid>);
         }
         return streamComponents;
     }
@@ -412,26 +425,47 @@ class VideoRoom extends Component {
         if (onSnackCloseAction) {
             onSnackCloseAction();
         }
-
     };
 
+    _toggleRemoteAudio() {
+        if (this.state.remoteAudioStream) {
+            this.state.remoteAudioStream.getAudioTracks().forEach((track) => {
+                track.enabled = this.state.remoteAudioMuted;
+            });
+            this.setState({remoteAudioMuted: !this.state.remoteAudioMuted});
+        }
+    }
+
     render() {
-        let { localStreams, streams, connect, screensharing, snackOpen, errorMessage } = this.state;
+        let { localStreams, streams, connect, screensharing, snackOpen, errorMessage, remoteAudioMuted } = this.state;
         let { classes, history }  = this.props;
+
 
         if (!connect) {
             return this._renderConnectModal();
         }
+
+        console.log('streams!!!', streams);
+
+
         let size = '150px';
-        console.log('re-rendering', localStreams);
 
         let localStreamsValue = localStreams.values();
 
         return (
             <div className={classes.root}>
                 <TopBar>
+                    { remoteAudioMuted ?
+                        <IconButton edge='end' color='inherit' aria-label='Un-mmute Remote Audio'  onClick={this._toggleRemoteAudio.bind(this)}>
+                            <MicOffIcon />
+                        </IconButton>
+                    :
+                        <IconButton edge='end' color='inherit' aria-label='Mute Remote Audio'  onClick={this._toggleRemoteAudio.bind(this)}>
+                            <MicIcon />
+                        </IconButton>
+                    }
                     { screensharing ?
-                        <IconButton edge='end' color='inherit' aria-label='Screen Share'  onClick={this._stopScreenShare.bind(this)}>
+                        <IconButton edge='end' color='inherit' aria-label='Stop Screen Share'  onClick={this._stopScreenShare.bind(this)}>
                             <StopScreenShareIcon />
                         </IconButton>
                     :
@@ -454,7 +488,7 @@ class VideoRoom extends Component {
                     spacing={2}
                     className={classes.bottomRow}
                 >
-                    {this._renderStreams(localStreamsValue, localStreams.size, {size, enableControls: true, muted: false})}
+                    {this._renderStreams(localStreamsValue, localStreams.size, {size, enableControls: true, muted: true})}
                 </Grid>
                 <Drawer anchor="right" open={false}>
                     Chat / Live transcription

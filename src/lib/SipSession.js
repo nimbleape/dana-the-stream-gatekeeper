@@ -41,10 +41,6 @@ export default class SipSession extends events.EventEmitter {
 		let _attachPCListeners = (pc) => {
 			window.pc = pc;
 
-			/*
-			 * TODO Move this to sender/receiver code
-			 */
-
 			/**
 			 * Technically theres one media stream with multiple tracks, one audio and X video
 			 */
