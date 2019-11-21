@@ -1,7 +1,7 @@
 import React from 'react';
 import { makeStyles } from '@material-ui/core/styles';
 import { Typography, Container, Link } from '@material-ui/core';
-import { Favorite as FavouriteIcon } from '@material-ui/icons';
+import { Favorite as FavouriteIcon, GitHub as GitHubIcon } from '@material-ui/icons';
 
 const useStyles = makeStyles(theme => ({
     footer: {
@@ -10,7 +10,7 @@ const useStyles = makeStyles(theme => ({
     },
     heart: {
         color: theme.palette.secondary.main
-    }
+    },
 }));
 
 export default function Login() {
@@ -25,6 +25,10 @@ export default function Login() {
                     {' by '}
                     <Link color="inherit" href="https://nimblea.pe">
                         Nimble Ape Ltd
+                    </Link>
+                    {' | '}
+                    <Link color="inherit" href="https://github.com/nimbleape/dana-the-stream-gatekeeper">
+                        <GitHubIcon />
                     </Link>
                 </Typography>
             </Container>
