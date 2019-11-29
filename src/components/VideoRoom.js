@@ -2,6 +2,7 @@ import React, { Component, Fragment } from 'react';
 import { withStyles } from '@material-ui/styles';
 import { withContext } from '../contexts/AppContext';
 import SipClient from '../lib/SipClient';
+import mqtt from 'async-mqtt';
 import Video from './Video';
 import TopBar from './TopBar';
 
@@ -102,8 +103,22 @@ class VideoRoom extends Component {
                     ]
                 }
             });
+
+            this._connectToMqtt();
+
         } catch(err) {
             this.setState({ snackOpen: true, errorMessage: err.message });
+        }
+    }
+
+    async _connectToMqtt() {
+        console.log('connecting to mqtt');
+        try {
+            this._mqtt = await mqtt.connectAsync('wss://test.mosquitto.org:8081');
+            console.log('connected to mqtt?', this._mqtt);
+            this._mqtt.on('message', this._handleMqttMessage.bind(this));
+        } catch (err) {
+            console.log('error connecting to mqtt', err);
         }
     }
 
@@ -250,13 +265,23 @@ class VideoRoom extends Component {
         })
     }
 
+    _handleMqttMessage(topic, message) {
+        console.log('MQTT', topic, JSON.parse(message));
+    }
+
     _call() {
         const { match } = this.props;
         this.setState({connect: true});
         if (match.params.name) {
             this._sip.on('connected', () => {
                 this._sip.call(match.params.name, this.state.localStreams.get('local-camera'));
-            })
+            });
+            try {
+                let result = this._mqtt.subscribe(`data-tsg/${match.params.name}/transcription`);
+                console.log('subscription was ', result);
+            } catch(err) {
+                console.log('ERR', err);
+            }
         }
         this._sip.start();
     }
@@ -294,6 +319,7 @@ class VideoRoom extends Component {
             this.state.session.terminate();
         }
         this._sip.stop();
+        this._mqtt.end();
         this.tearDownLocalStreams();
     }
 
@@ -444,9 +470,6 @@ class VideoRoom extends Component {
         if (!connect) {
             return this._renderConnectModal();
         }
-
-        console.log('streams!!!', streams);
-
 
         let size = '150px';
 
