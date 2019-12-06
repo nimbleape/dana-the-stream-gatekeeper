@@ -69,7 +69,7 @@ const styles = theme => ({
         marginRight: theme.spacing(1),
     },
     drawer: {
-        width:'250px'
+        maxWidth:'250px'
     }
 });
 
