@@ -68,8 +68,8 @@ const styles = theme => ({
         opacity: 0.9,
         marginRight: theme.spacing(1),
     },
-    drawer: {
-        maxWidth:'250px'
+    drawerList: {
+        width:'250px'
     }
 });
 
@@ -548,8 +548,8 @@ class VideoRoom extends Component {
                 >
                     {this._renderStreams(localStreamsValue, localStreams.size, {size, enableControls: true, muted: true})}
                 </Grid>
-                <Drawer className={classes.drawer} anchor="left" open={this.state.drawerOpen} onClose={() => this.setState({drawerOpen: !this.state.drawerOpen})}>
-                    <List>
+                <Drawer anchor="left" open={this.state.drawerOpen} onClose={() => this.setState({drawerOpen: !this.state.drawerOpen})}>
+                    <List className={classes.drawerList}>
                         {this._getTranscriptionListComponent()}
                     </List>
                 </Drawer>
