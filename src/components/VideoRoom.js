@@ -6,7 +6,7 @@ import mqtt from 'async-mqtt';
 import Video from './Video';
 import TopBar from './TopBar';
 
-import { Avatar, Button, Typography, Container, Grid, Drawer, Snackbar, IconButton } from '@material-ui/core';
+import { Avatar, Button, Typography, Container, Grid, Drawer, Snackbar, IconButton, List, ListItemText, ListItem } from '@material-ui/core';
 import {
     ArrowBack as BackIcon,
     Videocam as VideoCamIcon,
@@ -16,6 +16,7 @@ import {
     Close as CloseIcon,
     Mic as MicIcon,
     MicOff as MicOffIcon,
+    Forum as ForumIcon
 } from '@material-ui/icons';
 
 const styles = theme => ({
@@ -67,6 +68,9 @@ const styles = theme => ({
         opacity: 0.9,
         marginRight: theme.spacing(1),
     },
+    drawer: {
+        width:'250px'
+    }
 });
 
 
@@ -83,10 +87,12 @@ class VideoRoom extends Component {
             screenShareSession: null,
             screensharing: false,
             snackOpen: false,
+            drawerOpen: false,
             errorMessage: '',
             onSnackCloseAction: null,
             remoteAudioStream: null,
-            remoteAudioMuted: false
+            remoteAudioMuted: false,
+            transcription: new Map()
         };
 
         try {
@@ -104,17 +110,17 @@ class VideoRoom extends Component {
                 }
             });
 
-            this._connectToMqtt();
+            this._connectToMqtt(props.mqttUri);
 
         } catch(err) {
             this.setState({ snackOpen: true, errorMessage: err.message });
         }
     }
 
-    async _connectToMqtt() {
+    async _connectToMqtt(mqttUri) {
         console.log('connecting to mqtt');
         try {
-            this._mqtt = await mqtt.connectAsync('wss://test.mosquitto.org:8081');
+            this._mqtt = await mqtt.connectAsync(mqttUri);
             console.log('connected to mqtt?', this._mqtt);
             this._mqtt.on('message', this._handleMqttMessage.bind(this));
         } catch (err) {
@@ -256,7 +262,6 @@ class VideoRoom extends Component {
                     snackOpen: true,
                     errorMessage: endInfo.cause,
                     onSnackCloseAction: () => {
-                        console.log()
                         this.props.history.push('/');
                     }
                 });
@@ -266,7 +271,17 @@ class VideoRoom extends Component {
     }
 
     _handleMqttMessage(topic, message) {
-        console.log('MQTT', topic, JSON.parse(message));
+        if (topic.includes('transcript')) {
+            console.log('got a message', message);
+            let transcription = this.state.transcription;
+            let msg = JSON.parse(message);
+
+            transcription.delete(msg.id);
+            transcription.set(msg.id, msg);
+
+            this.setState({ transcription });
+            console.log(this.state.transcription);
+        }
     }
 
     _call() {
@@ -277,7 +292,7 @@ class VideoRoom extends Component {
                 this._sip.call(match.params.name, this.state.localStreams.get('local-camera'));
             });
             try {
-                let result = this._mqtt.subscribe(`data-tsg/${match.params.name}/transcription`);
+                let result = this._mqtt.subscribe(`danatsg/${match.params.name}/transcription`);
                 console.log('subscription was ', result);
             } catch(err) {
                 console.log('ERR', err);
@@ -319,7 +334,9 @@ class VideoRoom extends Component {
             this.state.session.terminate();
         }
         this._sip.stop();
-        this._mqtt.end();
+        if (this._mqtt) {
+            this._mqtt.end();
+        }
         this.tearDownLocalStreams();
     }
 
@@ -441,6 +458,21 @@ class VideoRoom extends Component {
         return streamRows;
     }
 
+    _getTranscriptionListComponent() {
+        let items = [];
+        (new Map([...this.state.transcription].reverse())).forEach((transcription, index) => {
+            items.push(
+                <ListItem divider={true} alignItems="flex-start" key={transcription.id}>
+                    <ListItemText
+                        primary={transcription.callerName}
+                        secondary={transcription.results.alternatives[0].transcript}
+                    />
+                </ListItem>
+            );
+        });
+        return items;
+    }
+
     _handleSnackClose(event, reason) {
         if (reason === 'clickaway') {
           return;
@@ -496,6 +528,9 @@ class VideoRoom extends Component {
                             <ScreenShareIcon />
                         </IconButton>
                     }
+                    <IconButton edge='end' color='inherit' aria-label='Transcription'  onClick={() => this.setState({drawerOpen: !this.state.drawerOpen})}>
+                        <ForumIcon />
+                    </IconButton>
                     <IconButton edge='end' color='inherit' aria-label='Back'  onClick={() => history.push('/')}>
                         <BackIcon />
                     </IconButton>
@@ -513,8 +548,10 @@ class VideoRoom extends Component {
                 >
                     {this._renderStreams(localStreamsValue, localStreams.size, {size, enableControls: true, muted: true})}
                 </Grid>
-                <Drawer anchor="right" open={false}>
-                    Chat / Live transcription
+                <Drawer className={classes.drawer} anchor="left" open={this.state.drawerOpen} onClose={() => this.setState({drawerOpen: !this.state.drawerOpen})}>
+                    <List>
+                        {this._getTranscriptionListComponent()}
+                    </List>
                 </Drawer>
                 <Snackbar
                     anchorOrigin={{ vertical: 'bottom', horizontal: 'center' }}

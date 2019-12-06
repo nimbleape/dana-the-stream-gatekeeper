@@ -15,7 +15,9 @@ const baseState = {
     password: '',
     chosenAudioInput: '',
     chosenVideoInput: '',
-    chosenAudioOutput: ''
+    chosenAudioOutput: '',
+    mqttUri: '',
+    dontShowSettings: false
 };
 
 const AppProvider = (props) => {
