@@ -46,10 +46,20 @@ export default class SipSession extends events.EventEmitter {
 			 */
 
 			pc.ontrack = (event) => {
+
+				if (event.track.kind === 'video') {
+					event.track.enabled = false;
+				}
+
 				event.streams.forEach((stream) => {
+					//check to make sure the stream actually has tracks....
+					console.log('YO', event);
 					this.emit('newStream', stream);
 				});
 			};
+
+			//rtc.connection.onremovestream = function (event) {
+
 
 			pc.onremovetrack = (event) => {
 				console.log('track removed', event);
