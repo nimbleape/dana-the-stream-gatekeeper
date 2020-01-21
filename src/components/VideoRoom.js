@@ -315,8 +315,10 @@ class VideoRoom extends Component {
                 this._sip.call(match.params.name, this.state.localStreams.get('local-camera'));
             });
             try {
-                let result = this._mqtt.subscribe(`danatsg/${match.params.name}/transcription`);
-                console.log('subscription was ', result);
+                if (this._mqtt) {
+                    let result = this._mqtt.subscribe(`danatsg/${match.params.name}/transcription`);
+                    console.log('subscription was ', result);
+                }
             } catch(err) {
                 console.log('ERR', err);
             }
