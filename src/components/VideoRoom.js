@@ -148,8 +148,8 @@ class VideoRoom extends Component {
                 audio: false
             });
 
-            let silenceTrack = this._createSilence();
-            stream.addTrack(silenceTrack);
+            //let silenceTrack = this._createSilence();
+            //stream.addTrack(silenceTrack);
 
             this.setState((prevState) => {
                 let localStreams = prevState.localStreams;
