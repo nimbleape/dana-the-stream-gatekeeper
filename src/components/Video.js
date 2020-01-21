@@ -1,4 +1,4 @@
-import React, {Component} from 'react';
+import React, { Component } from 'react';
 import IconButton from '@material-ui/core/IconButton';
 import { withStyles } from '@material-ui/styles';
 import {
@@ -28,6 +28,13 @@ const styles = theme => ({
     video: {
         objectFit: 'cover'
     },
+    videoPreview: {
+        width: '100%'
+    },
+    myVideoGrid: {
+        width: '150px',
+        height: '150px'
+    },
     videoInGrid: {
         height: '30vh'
     }
@@ -39,20 +46,27 @@ class Video extends Component {
         this.state = {
             controlsVisible: false,
             audioMuted: false,
-            videoMuted: false
-        }
-        this._videoRef = React.createRef()
+            videoMuted: false,
+        };
+        this._videoRef = React.createRef();
     }
 
     _addStreamToVideo() {
-        if (this._videoRef.current.srcObject !== this.props.stream) {
+        if (this._videoRef.current && this._videoRef.current.srcObject !== this.props.stream) {
             this._videoRef.current.autoplay = true;
             this._videoRef.current.srcObject = this.props.stream;
+
+            console.log('VIDEO srcObject not set', this.props.stream, this._videoRef);
+
             this._videoRef.current.onloadedmetadata = () => {
+                console.log('VIDEO META DATA LOADED', this._videoRef);
                 let tracks = this.props.stream.getVideoTracks();
+
                 for (let i = 0; i < tracks.length; ++i) {
+                    console.log('enabling track', tracks[i], this._videoRef);
                     tracks[i].enabled = true;
                 }
+                console.log('playing video', this._videoRef);
             };
         }
     }
@@ -90,13 +104,20 @@ class Video extends Component {
     render() {
 
         //should be able to hover over each one and mute it
-        let { muted, enableControls, onSelect, stream, selected, classes, inGrid } = this.props;
+        let { muted, enableControls, onSelect, stream, selected, classes, inGrid, previewVideo, myStreamGrid } = this.props;
         let { controlsVisible, audioMuted, videoMuted } = this.state;
 
         let selectedClassNames = [classes.root, (selected ? classes.selected : '')].join(' ');
-        let videoClassNames = [classes.video, (inGrid ? classes.videoInGrid : '')].join(' ');
+
+        let videoClassNames = [
+            classes.video,
+            (inGrid ? classes.videoInGrid : ''),
+            (previewVideo ? classes.videoPreview : ''),
+            (myStreamGrid ? classes.myVideoGrid : '')
+        ].join(' ');
 
         let hasStreamGotAudioTrack = false;
+
         if (stream && stream.getAudioTracks().length) {
             hasStreamGotAudioTrack = true;
         }
@@ -109,7 +130,7 @@ class Video extends Component {
             }} onMouseLeave={this.mouseOut.bind(this)} onMouseEnter={this.mouseOver.bind(this)} className={selectedClassNames}>
                 {enableControls && controlsVisible ?
                     <span className={classes.buttons}>
-                        {!muted && hasStreamGotAudioTrack ?
+                        {hasStreamGotAudioTrack ?
                             <IconButton edge="end" color="inherit" aria-label="Mic Off"  onClick={this.toggleAudioMute.bind(this)}>
                                 {!audioMuted ? <MicIcon /> : <MicOffIcon /> }
                             </IconButton>
@@ -119,7 +140,8 @@ class Video extends Component {
                         </IconButton>
                     </span>
                 : null }
-                <video className={videoClassNames} height={this.props.height} width={this.props.width} ref={this._videoRef} muted={muted}/>
+                <video className={videoClassNames} ref={this._videoRef} muted={muted}/>
+
             </div>
         );
     };

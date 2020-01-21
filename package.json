@@ -2,19 +2,21 @@
   "name": "dana-tsg",
   "version": "1.0.0",
   "repository": {
-    "type" : "git",
-    "url" : "https://github.com/nimbleape/dana-the-stream-gatekeeper.git"
+    "type": "git",
+    "url": "https://github.com/nimbleape/dana-the-stream-gatekeeper.git"
   },
   "license": "MIT",
   "dependencies": {
     "@material-ui/core": "^4.6.1",
     "@material-ui/icons": "^4.5.1",
+    "async-mqtt": "^2.4.2",
     "debug": "^4.1.1",
     "events": "^3.0.0",
     "getstats": "^1.2.0",
     "jssip": "^3.3.11",
     "prop-types": "^15.7.2",
     "react": "^16.11.0",
+    "react-beforeunload": "^2.1.0",
     "react-dom": "^16.11.0",
     "react-router-dom": "^5.1.2",
     "react-scripts": "3.2.0",

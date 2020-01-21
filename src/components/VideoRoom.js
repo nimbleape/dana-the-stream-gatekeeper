@@ -2,10 +2,12 @@ import React, { Component, Fragment } from 'react';
 import { withStyles } from '@material-ui/styles';
 import { withContext } from '../contexts/AppContext';
 import SipClient from '../lib/SipClient';
+import mqtt from 'async-mqtt';
 import Video from './Video';
 import TopBar from './TopBar';
+import { Beforeunload } from 'react-beforeunload';
 
-import { Avatar, Button, Typography, Container, Grid, Drawer, Snackbar, IconButton } from '@material-ui/core';
+import { Avatar, Button, Typography, Container, Grid, Drawer, Snackbar, IconButton, List, ListItemText, ListItem } from '@material-ui/core';
 import {
     ArrowBack as BackIcon,
     Videocam as VideoCamIcon,
@@ -15,6 +17,7 @@ import {
     Close as CloseIcon,
     Mic as MicIcon,
     MicOff as MicOffIcon,
+    Forum as ForumIcon
 } from '@material-ui/icons';
 
 const styles = theme => ({
@@ -66,6 +69,9 @@ const styles = theme => ({
         opacity: 0.9,
         marginRight: theme.spacing(1),
     },
+    drawerList: {
+        width:'250px'
+    }
 });
 
 
@@ -82,10 +88,12 @@ class VideoRoom extends Component {
             screenShareSession: null,
             screensharing: false,
             snackOpen: false,
+            drawerOpen: false,
             errorMessage: '',
             onSnackCloseAction: null,
             remoteAudioStream: null,
-            remoteAudioMuted: false
+            remoteAudioMuted: false,
+            transcription: new Map()
         };
 
         try {
@@ -102,9 +110,32 @@ class VideoRoom extends Component {
                     ]
                 }
             });
+
+            if (props.mqttUri) {
+                this._connectToMqtt(props.mqttUri);
+            }
+
         } catch(err) {
             this.setState({ snackOpen: true, errorMessage: err.message });
         }
+    }
+
+    async _connectToMqtt(mqttUri) {
+        console.log('connecting to mqtt');
+        try {
+            this._mqtt = await mqtt.connectAsync(mqttUri);
+            console.log('connected to mqtt?', this._mqtt);
+            this._mqtt.on('message', this._handleMqttMessage.bind(this));
+        } catch (err) {
+            console.log('error connecting to mqtt', err);
+        }
+    }
+
+    _createSilence() {
+        let ctx = new AudioContext(), oscillator = ctx.createOscillator();
+        let dst = oscillator.connect(ctx.createMediaStreamDestination());
+        oscillator.start();
+        return Object.assign(dst.stream.getAudioTracks()[0], {enabled: false});
     }
 
     async getScreenShareMedia() {
@@ -113,14 +144,19 @@ class VideoRoom extends Component {
             stream = await navigator.mediaDevices.getDisplayMedia({
                 video: {
                     cursor: 'always'
-                }
+                },
+                audio: false
             });
+
+            let silenceTrack = this._createSilence();
+            stream.addTrack(silenceTrack);
 
             this.setState((prevState) => {
                 let localStreams = prevState.localStreams;
 
                 //find the previous one and delete it
                 localStreams.delete('screen-share');
+
                 localStreams.set('screen-share', stream);
                 return {
                     ...prevState,
@@ -186,6 +222,7 @@ class VideoRoom extends Component {
     handleSession (session) {
         if (session.type === 'screen-share') {
             this.setState({ screenShareSession: session });
+            return;
         }else {
             this.setState({ session });
         }
@@ -193,34 +230,41 @@ class VideoRoom extends Component {
 
             //theres only one audio track from asterisk
             if (stream.getAudioTracks().length) {
+                console.log('got a stream with audio track', stream);
                 this.setState({remoteAudioStream: stream});
                 this._remoteAudio = new Audio();
                 this._remoteAudio.srcObject = this.state.remoteAudioStream;
                 this._remoteAudio.play();
             } else {
-                this.setState((prevState) => {
-                    let streams = prevState.streams;
-                    streams.set(stream.id, stream);
-                    return {
-                        ...prevState,
-                        streams
-                    }
-                });
-            }
+                console.log('got a stream with no audio tracks', stream.id, stream.getTracks());
 
-            stream.onremovetrack = () => {
-                console.log('track ended');
-                if (!stream.getTracks().length) {
+                if (!this.state.streams.has(stream.id)) {
+                    let component = (<Video stream={stream} muted={false} enableControls={true} inGrid={true}/>)
+
                     this.setState((prevState) => {
                         let streams = prevState.streams;
-                        streams.delete(stream.id);
+                        streams.set(stream.id, component);
                         return {
                             ...prevState,
                             streams
                         }
                     });
                 }
-            };
+            }
+
+            // stream.onremovetrack = () => {
+            //     console.log('track ended');
+            //     if (!stream.getTracks().length) {
+            //         this.setState((prevState) => {
+            //             let streams = prevState.streams;
+            //             streams.delete(stream.id);
+            //             return {
+            //                 ...prevState,
+            //                 streams
+            //             }
+            //         });
+            //     }
+            // };
 
         });
 
@@ -241,7 +285,6 @@ class VideoRoom extends Component {
                     snackOpen: true,
                     errorMessage: endInfo.cause,
                     onSnackCloseAction: () => {
-                        console.log()
                         this.props.history.push('/');
                     }
                 });
@@ -250,13 +293,33 @@ class VideoRoom extends Component {
         })
     }
 
-    _call() {
+    _handleMqttMessage(topic, message) {
+        if (topic.includes('transcript')) {
+            console.log('got a message', message);
+            let transcription = this.state.transcription;
+            let msg = JSON.parse(message);
+
+            transcription.delete(msg.id);
+            transcription.set(msg.id, msg);
+
+            this.setState({ transcription });
+            console.log(this.state.transcription);
+        }
+    }
+
+    async _call() {
         const { match } = this.props;
         this.setState({connect: true});
         if (match.params.name) {
             this._sip.on('connected', () => {
                 this._sip.call(match.params.name, this.state.localStreams.get('local-camera'));
-            })
+            });
+            try {
+                let result = this._mqtt.subscribe(`danatsg/${match.params.name}/transcription`);
+                console.log('subscription was ', result);
+            } catch(err) {
+                console.log('ERR', err);
+            }
         }
         this._sip.start();
     }
@@ -284,8 +347,14 @@ class VideoRoom extends Component {
 
     async componentDidMount () {
         await this.getStream();
+        //await this.getScreenShareMedia();
         this._boundOnSession = this.handleSession.bind(this);
         this._sip.on('session', this._boundOnSession);
+    }
+
+    _terminate() {
+        this.state.session && this.state.session.terminate();
+        this.state.screenShareSession && this.state.screenShareSession.terminate();
     }
 
     componentWillUnmount() {
@@ -294,6 +363,9 @@ class VideoRoom extends Component {
             this.state.session.terminate();
         }
         this._sip.stop();
+        if (this._mqtt) {
+            this._mqtt.end();
+        }
         this.tearDownLocalStreams();
     }
 
@@ -316,7 +388,7 @@ class VideoRoom extends Component {
                         <Typography component="h1" variant="h5">
                             Do you look spiffing?
                         </Typography>
-                        <Video stream={localStreams.get('local-camera')} muted={true} width="100%"/>
+                        <Video stream={localStreams.get('local-camera')} previewVideo={true} enableControls={true} muted={true}/>
                         <Button
                             type="submit"
                             fullWidth
@@ -342,8 +414,16 @@ class VideoRoom extends Component {
             this._sip.call(match.params.name, screenShareStream, {
                 type: 'screen-share',
                 rtcOfferConstraints: {
-                    OfferToReceiveVideo: false,
-                    OfferToReceiveAudio: false
+                    mandatory: {
+                        offerToReceiveVideo: false,
+                        offerToReceiveAudio: false
+                    }
+                },
+                rtcAnswerConstraints: {
+                    mandatory: {
+                        offerToReceiveVideo: false,
+                        offerToReceiveAudio: false
+                    }
                 }
             });
         }
@@ -365,17 +445,18 @@ class VideoRoom extends Component {
                 }
             });
         }
+        this.setState({screensharing: false});
     }
 
     selectedStream(stream) {
         this.setState({selectedStream: stream});
     }
 
-    _renderStreams(streamsIterator, number, opts = {}) {
+    _renderStreams(streamsIterator, number) {
         let streamComponents = [];
         for (let i = 0; i < number; i++) {
-            let stream = streamsIterator.next().value;
-            streamComponents.push(<Grid item key={i}><Video stream={stream} muted={opts.muted} enableControls={true} width={opts.size} height={opts.size} inGrid={opts.inGrid}/></Grid>);
+            let videoComponent = streamsIterator.next().value;
+            streamComponents.push(<Grid item key={i}>{videoComponent}</Grid>);
         }
         return streamComponents;
     }
@@ -393,7 +474,6 @@ class VideoRoom extends Component {
 
         let numToRender = Math.floor(streams.size / 2);
         let streamsValue = streams.values();
-
         [0, 1].forEach((key) => {
             streamRows.push(<Grid
                 container
@@ -403,7 +483,7 @@ class VideoRoom extends Component {
                 spacing={2}
                 key={key}
             >
-                {this._renderStreams(streamsValue, numToRender, {inGrid: true})}
+                {this._renderStreams(streamsValue, numToRender)}
             </Grid>);
             numToRender = streams.size - numToRender;
         });
@@ -413,6 +493,21 @@ class VideoRoom extends Component {
         // }
 
         return streamRows;
+    }
+
+    _getTranscriptionListComponent() {
+        let items = [];
+        (new Map([...this.state.transcription].reverse())).forEach((transcription, index) => {
+            items.push(
+                <ListItem divider={true} alignItems="flex-start" key={transcription.id}>
+                    <ListItemText
+                        primary={transcription.callerName}
+                        secondary={transcription.results.alternatives[0].transcript}
+                    />
+                </ListItem>
+            );
+        });
+        return items;
     }
 
     _handleSnackClose(event, reason) {
@@ -440,81 +535,87 @@ class VideoRoom extends Component {
         let { localStreams, streams, connect, screensharing, snackOpen, errorMessage, remoteAudioMuted } = this.state;
         let { classes, history }  = this.props;
 
-
         if (!connect) {
             return this._renderConnectModal();
         }
 
-        console.log('streams!!!', streams);
+        let streamContainerMap = new Map();
 
-
-        let size = '150px';
-
-        let localStreamsValue = localStreams.values();
+        localStreams.forEach((stream) => {
+            streamContainerMap.set(stream.id, <Video stream={stream} myStreamGrid={true} enableControls={true} muted={true}/>);
+        });
+        let localStreamsValue = streamContainerMap.values();
 
         return (
-            <div className={classes.root}>
-                <TopBar>
-                    { remoteAudioMuted ?
-                        <IconButton edge='end' color='inherit' aria-label='Un-mmute Remote Audio'  onClick={this._toggleRemoteAudio.bind(this)}>
-                            <MicOffIcon />
+            <Beforeunload onBeforeunload={this._terminate.bind(this)}>
+                <div className={classes.root}>
+                    <TopBar>
+                        { remoteAudioMuted ?
+                            <IconButton edge='end' color='inherit' aria-label='Un-mmute Remote Audio'  onClick={this._toggleRemoteAudio.bind(this)}>
+                                <MicOffIcon />
+                            </IconButton>
+                        :
+                            <IconButton edge='end' color='inherit' aria-label='Mute Remote Audio'  onClick={this._toggleRemoteAudio.bind(this)}>
+                                <MicIcon />
+                            </IconButton>
+                        }
+                        { screensharing ?
+                            <IconButton edge='end' color='inherit' aria-label='Stop Screen Share'  onClick={this._stopScreenShare.bind(this)}>
+                                <StopScreenShareIcon />
+                            </IconButton>
+                        :
+                            <IconButton edge='end' color='inherit' aria-label='Screen Share'  onClick={this._startScreenShare.bind(this)}>
+                                <ScreenShareIcon />
+                            </IconButton>
+                        }
+                        <IconButton edge='end' color='inherit' aria-label='Transcription'  onClick={() => this.setState({drawerOpen: !this.state.drawerOpen})}>
+                            <ForumIcon />
                         </IconButton>
-                    :
-                        <IconButton edge='end' color='inherit' aria-label='Mute Remote Audio'  onClick={this._toggleRemoteAudio.bind(this)}>
-                            <MicIcon />
+                        <IconButton edge='end' color='inherit' aria-label='Back'  onClick={() => history.push('/')}>
+                            <BackIcon />
                         </IconButton>
-                    }
-                    { screensharing ?
-                        <IconButton edge='end' color='inherit' aria-label='Stop Screen Share'  onClick={this._stopScreenShare.bind(this)}>
-                            <StopScreenShareIcon />
-                        </IconButton>
-                    :
-                        <IconButton edge='end' color='inherit' aria-label='Screen Share'  onClick={this._startScreenShare.bind(this)}>
-                            <ScreenShareIcon />
-                        </IconButton>
-                    }
-                    <IconButton edge='end' color='inherit' aria-label='Back'  onClick={() => history.push('/')}>
-                        <BackIcon />
-                    </IconButton>
-                </TopBar>
+                    </TopBar>
 
-                {this._renderStreamsContainer(streams)}
+                    {this._renderStreamsContainer(streams)}
 
-                <Grid
-                    container
-                    direction="row"
-                    justify="flex-end"
-                    alignItems="center"
-                    spacing={2}
-                    className={classes.bottomRow}
-                >
-                    {this._renderStreams(localStreamsValue, localStreams.size, {size, enableControls: true, muted: true})}
-                </Grid>
-                <Drawer anchor="right" open={false}>
-                    Chat / Live transcription
-                </Drawer>
-                <Snackbar
-                    anchorOrigin={{ vertical: 'bottom', horizontal: 'center' }}
-                    open={snackOpen}
-                    autoHideDuration={6000}
-                    onClose={this._handleSnackClose.bind(this)}
-                    ContentProps={{
-                        'aria-describedby': 'message-id',
-                    }}
-                    message={<span id='message-id' className={classes.errorMessage}><ErrorIcon className={classes.errorIcon}/>{errorMessage}</span>}
-                    action={[
-                        <IconButton
-                            key="close"
-                            aria-label="close"
-                            color="inherit"
-                            className={classes.close}
-                            onClick={this._handleSnackClose.bind(this)}
-                        >
-                            <CloseIcon />
-                        </IconButton>,
-                    ]}
-                />
-            </div>
+                    <Grid
+                        container
+                        direction="row"
+                        justify="flex-end"
+                        alignItems="center"
+                        spacing={2}
+                        className={classes.bottomRow}
+                    >
+                        {this._renderStreams(localStreamsValue, localStreams.size)}
+                    </Grid>
+                    <Drawer anchor="left" open={this.state.drawerOpen} onClose={() => this.setState({drawerOpen: !this.state.drawerOpen})}>
+                        <List className={classes.drawerList}>
+                            {this._getTranscriptionListComponent()}
+                        </List>
+                    </Drawer>
+                    <Snackbar
+                        anchorOrigin={{ vertical: 'bottom', horizontal: 'center' }}
+                        open={snackOpen}
+                        autoHideDuration={6000}
+                        onClose={this._handleSnackClose.bind(this)}
+                        ContentProps={{
+                            'aria-describedby': 'message-id',
+                        }}
+                        message={<span id='message-id' className={classes.errorMessage}><ErrorIcon className={classes.errorIcon}/>{errorMessage}</span>}
+                        action={[
+                            <IconButton
+                                key="close"
+                                aria-label="close"
+                                color="inherit"
+                                className={classes.close}
+                                onClick={this._handleSnackClose.bind(this)}
+                            >
+                                <CloseIcon />
+                            </IconButton>,
+                        ]}
+                    />
+                </div>
+            </Beforeunload>
         );
     }
 }

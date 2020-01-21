@@ -28,7 +28,7 @@ const useStyles = makeStyles(theme => ({
 
 function Settings(props) {
 
-    let { history, dispatch, serverWssUri, extension, password, name } = props;
+    let { history, dispatch, serverWssUri, sipUri, password, name, mqttUri, dontShowSettings } = props;
     const classes = useStyles();
 
     const handleChange = (event) => {
@@ -45,6 +45,9 @@ function Settings(props) {
                 break;
             case 'name':
                 ACTION_NAME = 'UPDATE_NAME';
+                break;
+            case 'mqttUri':
+                ACTION_NAME = 'UPDATE_MQTT_URI';
                 break;
             default:
                     break;
@@ -70,6 +73,7 @@ function Settings(props) {
                     <form className={classes.form} noValidate onSubmit={() => {
                         history.push('/');
                     }}>
+
                         <TextField
                             variant="outlined"
                             margin="normal"
@@ -90,6 +94,7 @@ function Settings(props) {
                             id="uri"
                             label="Server URI"
                             name="uri"
+                            disabled={dontShowSettings}
                             value={serverWssUri}
                             onChange={handleChange}
                         />
@@ -101,7 +106,8 @@ function Settings(props) {
                             id="sipUri"
                             label="SIP URI"
                             name="sipUri"
-                            value={extension}
+                            disabled={dontShowSettings}
+                            value={sipUri}
                             onChange={handleChange}
                         />
                         <TextField
@@ -113,8 +119,20 @@ function Settings(props) {
                             label="Password"
                             type="password"
                             id="password"
+                            disabled={dontShowSettings}
                             autoComplete="current-password"
                             value={password}
+                            onChange={handleChange}
+                        />
+                        <TextField
+                            variant="outlined"
+                            margin="normal"
+                            fullWidth
+                            name="mqttUri"
+                            label="MQTT WSS URI"
+                            id="mqttUri"
+                            disabled={dontShowSettings}
+                            value={mqttUri}
                             onChange={handleChange}
                         />
                         <Button
