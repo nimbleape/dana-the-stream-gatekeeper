@@ -85,7 +85,6 @@ class VideoRoom extends Component {
             connect: false,
             selectedStream: null,
             session: null,
-            screenShareSession: null,
             screensharing: false,
             snackOpen: false,
             drawerOpen: false,
@@ -131,13 +130,6 @@ class VideoRoom extends Component {
         }
     }
 
-    _createSilence() {
-        let ctx = new AudioContext(), oscillator = ctx.createOscillator();
-        let dst = oscillator.connect(ctx.createMediaStreamDestination());
-        oscillator.start();
-        return Object.assign(dst.stream.getAudioTracks()[0], {enabled: false});
-    }
-
     async getScreenShareMedia() {
         let stream;
         try {
@@ -147,9 +139,6 @@ class VideoRoom extends Component {
                 },
                 audio: false
             });
-
-            let silenceTrack = this._createSilence();
-            stream.addTrack(silenceTrack);
 
             this.setState((prevState) => {
                 let localStreams = prevState.localStreams;
@@ -182,8 +171,8 @@ class VideoRoom extends Component {
         let constraints = {
             audio: true,
             video: {
-                width: { min: 640, ideal: 1920 },
-                height: { min: 400, ideal: 1080 },
+                width: { min: 640, ideal: 1920, max: 3840 },
+                height: { min: 400, ideal: 1080, max: 2160 },
                 aspectRatio: { ideal: 1.7777777778 }
             }
         }
@@ -220,12 +209,7 @@ class VideoRoom extends Component {
     }
 
     handleSession (session) {
-        if (session.type === 'screen-share') {
-            this.setState({ screenShareSession: session });
-            return;
-        }else {
-            this.setState({ session });
-        }
+        this.setState({ session });
         session.on('newStream', (stream) => {
 
             //theres only one audio track from asterisk
@@ -312,13 +296,16 @@ class VideoRoom extends Component {
         this.setState({connect: true});
         if (match.params.name) {
             this._sip.on('connected', () => {
-                this._sip.call(match.params.name, this.state.localStreams.get('local-camera'));
+                let localCameraStream = this.state.localStreams.get('local-camera').clone();
+                this._sip.call(match.params.name, localCameraStream);
             });
-            try {
-                let result = this._mqtt.subscribe(`danatsg/${match.params.name}/transcription`);
-                console.log('subscription was ', result);
-            } catch(err) {
-                console.log('ERR', err);
+            if (this._mqtt) {
+                try {
+                    let result = this._mqtt.subscribe(`danatsg/${match.params.name}/transcription`);
+                    console.log('subscription was ', result);
+                } catch(err) {
+                    console.log('ERR', err);
+                }
             }
         }
         this._sip.start();
@@ -354,7 +341,6 @@ class VideoRoom extends Component {
 
     _terminate() {
         this.state.session && this.state.session.terminate();
-        this.state.screenShareSession && this.state.screenShareSession.terminate();
     }
 
     componentWillUnmount() {
@@ -407,34 +393,32 @@ class VideoRoom extends Component {
 
     async _startScreenShare() {
         const { match } = this.props;
-
-        let screenShareStream = await this.getScreenShareMedia();
-        this.setState({screensharing: true});
+        const { session } = this.state;
         if (match.params.name) {
-            this._sip.call(match.params.name, screenShareStream, {
-                type: 'screen-share',
-                rtcOfferConstraints: {
-                    mandatory: {
-                        offerToReceiveVideo: false,
-                        offerToReceiveAudio: false
-                    }
-                },
-                rtcAnswerConstraints: {
-                    mandatory: {
-                        offerToReceiveVideo: false,
-                        offerToReceiveAudio: false
-                    }
-                }
+            //go add the screen share track (from the screenShareStream) into the localStream
+            let screenShareStream = await this.getScreenShareMedia();
+
+            screenShareStream.getVideoTracks().forEach((track) => {
+                console.log('adding track', track)
+                session.jssipRtcSession.connection.addTransceiver(track, {direction: 'sendonly'});
             });
+
+
+            if(!session.jssipRtcSession.renegotiate()) {
+                console.log('renegotiating');
+            }
+            this.setState({screensharing: true});
         }
     }
 
     _stopScreenShare() {
-        if (this.state.screenShareSession) {
-            this.state.screenShareSession.terminate();
-        }
         let screenShareStream = this.state.localStreams.get('screen-share');
         if (screenShareStream) {
+
+            screenShareStream.getTracks().forEach((track) => {
+                track.stop();
+            })
+
             this.setState((prevState) => {
                 let localStreams = prevState.localStreams;
 
