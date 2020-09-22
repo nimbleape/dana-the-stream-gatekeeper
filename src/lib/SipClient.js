@@ -45,6 +45,25 @@ export default class SipClient extends events.EventEmitter {
 
             this._onSession(rtcSession);
         });
+
+        this._ua.on('newMessage', (data) => {
+            if (data.originator === 'local') {
+                return;
+            }
+            let ct = data.request.headers['Content-Type'][0].raw;
+            if (ct === 'application/x-asterisk-confbridge-event+json') {
+                let msg = JSON.parse(data.request.body);
+                if (msg.type === 'ConfbridgeWelcome') {
+                    this.emit('participantWelcomeReceived', msg);
+                } else {
+                    this.emit('participantInfoReceived', msg);
+                }
+            } else if (ct === 'application/x-asterisk-confbridge-chat+json') {
+                let msg = JSON.parse(data.request.body);
+                this.emit('messageReceived', msg);
+            }
+        });
+
     }
 
     get name() {
