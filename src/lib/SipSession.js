@@ -39,7 +39,7 @@ export default class SipSession extends events.EventEmitter {
 		this._rtcSession = rtcSession;
 
 		let _attachPCListeners = (pc) => {
-			window.pc = pc;
+			// window.pc = pc;
 
 			/**
 			 * Technically theres one media stream with multiple tracks, one audio and X video

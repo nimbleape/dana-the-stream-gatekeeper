@@ -75,9 +75,6 @@ export default class SipClient extends events.EventEmitter {
         logger.debug('call() [number:"%s"]', number);
 
         let constraints = {
-            data             : {
-                type: opts.type || 'camera'
-            },
             mediaStream      : mediaStream,
             pcConfig         : this._pcConfig,
         };
