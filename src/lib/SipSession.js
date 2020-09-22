@@ -229,4 +229,21 @@ export default class SipSession extends events.EventEmitter {
 	unmute() {
 		this._rtcSession.unmute({ audio: true, video: true });
 	}
+
+    sendMessage(from, string_msg, handlers) {
+        logger.debug("sendMessage() %s", string_msg);
+
+        let msg = {
+                'From': from,
+                'Content-Type': 'application/x-asterisk-confbridge-chat+json',
+                'Body': string_msg
+        };
+        let body = JSON.stringify(msg);
+        let extraHeaders = [ 'Content-Type: application/x-asterisk-confbridge-chat+json' ];
+        this._rtcSession.sendRequest(jssip.C.MESSAGE, {
+            extraHeaders,
+            body: body,
+            eventHandlers: handlers
+        });
+    }
 }
