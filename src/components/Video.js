@@ -26,7 +26,8 @@ const styles = theme => ({
         zIndex: 100
     },
     video: {
-        objectFit: 'cover'
+        objectFit: 'cover',
+        maxWidth: '100%'
     },
     videoPreview: {
         width: '100%'
