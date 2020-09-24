@@ -279,15 +279,14 @@ class VideoRoom extends Component {
 
     _handleMqttMessage(topic, message) {
         if (topic.includes('transcript')) {
-            console.log('got a message', message);
-            let transcription = this.state.transcription;
+            console.log('got a message', message.toString());
+            let {transcription} = this.state;
             let msg = JSON.parse(message);
-
+            console.log(msg);
             transcription.delete(msg.id);
             transcription.set(msg.id, msg);
 
             this.setState({ transcription });
-            console.log(this.state.transcription);
         }
     }
 
@@ -482,11 +481,19 @@ class VideoRoom extends Component {
     _getTranscriptionListComponent() {
         let items = [];
         (new Map([...this.state.transcription].reverse())).forEach((transcription, index) => {
+            let transText = '';
+            if (transcription.platform === 'azure') {
+                transText = transcription.results.text;
+            } else if (transcription.platform === 'google') {
+                transText = transcription.results.alternatives[0].transcript;
+            } else if (transcription.platform === 'amazon') {
+                transText = transcription.results[0].Transcript;
+            }
             items.push(
                 <ListItem divider={true} alignItems="flex-start" key={transcription.id}>
                     <ListItemText
-                        primary={transcription.callerName}
-                        secondary={transcription.results.alternatives[0].transcript}
+                        primary={`${transcription.callerName} (${transcription.platform})`}
+                        secondary={transText}
                     />
                 </ListItem>
             );
