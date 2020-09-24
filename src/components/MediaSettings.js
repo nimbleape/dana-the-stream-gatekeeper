@@ -91,8 +91,8 @@ function MediaSettings(props) {
             let constraints = {
                 audio: true,
                 video: {
-                    width: { min: 640, ideal: 1920 },
-                    height: { min: 400, ideal: 1080 },
+                    width: { min: 640, ideal: 1920, max: 3840 },
+                    height: { min: 400, ideal: 1080, max: 2160 },
                     aspectRatio: { ideal: 1.7777777778 }
                 }
             }
@@ -216,7 +216,7 @@ function MediaSettings(props) {
                         </form>
                     </Grid>
                     <Grid item xs={12} md={6}>
-                        <Video stream={stream} muted={true} width="100%"/>
+                        <Video stream={stream} muted={true} />
                     </Grid>
                 </Grid>
             </Container>

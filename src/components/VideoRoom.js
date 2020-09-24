@@ -7,7 +7,21 @@ import Video from './Video';
 import TopBar from './TopBar';
 import { Beforeunload } from 'react-beforeunload';
 
-import { Avatar, Button, Typography, Container, Grid, Drawer, Snackbar, IconButton, List, ListItemText, ListItem } from '@material-ui/core';
+import {
+    Avatar,
+    Button,
+    Typography,
+    Container,
+    Grid,
+    Drawer,
+    Snackbar,
+    IconButton,
+    List,
+    ListItemText,
+    ListItem,
+    TextField
+} from '@material-ui/core';
+
 import {
     ArrowBack as BackIcon,
     Videocam as VideoCamIcon,
@@ -17,7 +31,8 @@ import {
     Close as CloseIcon,
     Mic as MicIcon,
     MicOff as MicOffIcon,
-    Forum as ForumIcon
+    Forum as ForumIcon,
+    Chat as ChatIcon
 } from '@material-ui/icons';
 
 const styles = theme => ({
@@ -87,12 +102,14 @@ class VideoRoom extends Component {
             session: null,
             screensharing: false,
             snackOpen: false,
-            drawerOpen: false,
+            transcriptionDrawerOpen: false,
+            chatDrawerOpen: false,
             errorMessage: '',
             onSnackCloseAction: null,
             remoteAudioStream: null,
             remoteAudioMuted: false,
-            transcription: new Map()
+            transcription: new Map(),
+            chat: new Set(),
         };
 
         try {
@@ -165,6 +182,7 @@ class VideoRoom extends Component {
 
     async getStream() {
 
+        let devices = await navigator.mediaDevices.enumerateDevices();
         let { chosenAudioInput, chosenVideoInput } = this.props;
 
         //if we can support 4k then we should
@@ -177,13 +195,29 @@ class VideoRoom extends Component {
             }
         }
         if (chosenAudioInput) {
-            constraints.audio = {
-                deviceId: { exact: chosenAudioInput }
+
+            //do we have it?
+            let found = devices.some((device) => {
+                console.log(device, chosenAudioInput);
+                return device.deviceId === chosenAudioInput;
+            })
+            if (found) {
+                constraints.audio = {
+                    deviceId: { exact: chosenAudioInput }
+                }
             }
         }
 
         if (chosenVideoInput) {
-            constraints.video.deviceId = { exact: chosenVideoInput };
+            //do we have it?
+            let found = devices.some((device) => {
+                console.log(device, chosenVideoInput);
+
+                return device.deviceId === chosenVideoInput;
+            })
+            if (found) {
+                constraints.video.deviceId = { exact: chosenVideoInput };
+            }
         }
 
         let stream;
@@ -275,6 +309,21 @@ class VideoRoom extends Component {
 
             }
         })
+
+        this._sip.on('participantWelcomeReceived', (msg) => {
+            console.log('participant welcome', msg)
+        })
+
+        this._sip.on('participantInfoReceived', (msg) => {
+            console.log('participant info', msg)
+        })
+
+        this._sip.on('messageReceived', (msg) => {
+            console.log('got a message', msg);
+            let {chat} = this.state;
+            chat.add({name: msg.From, text: msg.Body});
+            this.setState({ chat });
+        })
     }
 
     _handleMqttMessage(topic, message) {
@@ -308,6 +357,20 @@ class VideoRoom extends Component {
             }
         }
         this._sip.start();
+    }
+
+    _sendChat(e) {
+        e.preventDefault();
+        e.stopPropagation();
+        let { session } = this.state;
+        console.log(this.textChatRef.value);
+        if (session) {
+            session.sendMessage(this._sip.name, this.textChatRef.value);
+            let {chat} = this.state;
+            chat.add({name: this._sip.name, text: this.textChatRef.value});
+            this.setState({ chat });
+        }
+        this.textChatRef.value = '';
     }
 
     tearDownLocalStreams() {
@@ -501,6 +564,17 @@ class VideoRoom extends Component {
         return items;
     }
 
+    _getChatListComponent() {
+        return Array.from(this.state.chat).reverse().map((chat) => (
+            <ListItem divider={true} alignItems="flex-start">
+                <ListItemText
+                    primary={chat.name}
+                    secondary={chat.text}
+                />
+            </ListItem>
+        ))
+    }
+
     _handleSnackClose(event, reason) {
         if (reason === 'clickaway') {
           return;
@@ -559,8 +633,11 @@ class VideoRoom extends Component {
                                 <ScreenShareIcon />
                             </IconButton>
                         }
-                        <IconButton edge='end' color='inherit' aria-label='Transcription'  onClick={() => this.setState({drawerOpen: !this.state.drawerOpen})}>
+                        <IconButton edge='end' color='inherit' aria-label='Transcription'  onClick={() => this.setState({transcriptionDrawerOpen: !this.state.transcriptionDrawerOpen})}>
                             <ForumIcon />
+                        </IconButton>
+                        <IconButton edge='end' color='inherit' aria-label='Chat'  onClick={() => this.setState({chatDrawerOpen: !this.state.chatDrawerOpen})}>
+                            <ChatIcon />
                         </IconButton>
                         <IconButton edge='end' color='inherit' aria-label='Back'  onClick={() => history.push('/')}>
                             <BackIcon />
@@ -579,9 +656,35 @@ class VideoRoom extends Component {
                     >
                         {this._renderStreams(localStreamsValue, localStreams.size)}
                     </Grid>
-                    <Drawer anchor="left" open={this.state.drawerOpen} onClose={() => this.setState({drawerOpen: !this.state.drawerOpen})}>
+                    <Drawer anchor="left" open={this.state.transcriptionDrawerOpen} onClose={() => this.setState({transcriptionDrawerOpen: !this.state.transcriptionDrawerOpen})}>
                         <List className={classes.drawerList}>
                             {this._getTranscriptionListComponent()}
+                        </List>
+                    </Drawer>
+                    <Drawer anchor="left" open={this.state.chatDrawerOpen} onClose={() => this.setState({chatDrawerOpen: !this.state.chatDrawerOpen})}>
+                        { this.state.session && this.state.session.jssipRtcSession && (
+                            <form onSubmit={this._sendChat.bind(this)} noValidate autoComplete="off">
+                                <TextField
+                                    id="chat"
+                                    label="Chat"
+                                    multiline
+                                    fullWidth
+                                    rows={4}
+                                    inputRef={(c) => {this.textChatRef = c}}
+                                />
+                                <Button
+                                    type="submit"
+                                    fullWidth
+                                    variant="contained"
+                                    color="primary"
+                                    className={classes.submit}
+                                >
+                                    Send
+                                </Button>
+                            </form>
+                        )}
+                        <List className={classes.drawerList}>
+                            {this._getChatListComponent()}
                         </List>
                     </Drawer>
                     <Snackbar
