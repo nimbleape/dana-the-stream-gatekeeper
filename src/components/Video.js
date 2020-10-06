@@ -5,7 +5,9 @@ import {
     MicOutlined as MicIcon,
     MicOffOutlined as MicOffIcon,
     VideocamOffOutlined as VideoCamOffIcon,
-    VideocamOutlined as VideoCamIcon
+    VideocamOutlined as VideoCamIcon,
+    PictureInPicture as PictureInPictureIcon,
+    Cancel as CancelIcon
 } from '@material-ui/icons';
 
 const styles = theme => ({
@@ -48,12 +50,14 @@ class Video extends Component {
             controlsVisible: false,
             audioMuted: false,
             videoMuted: false,
+            pipEnabled: false
         };
         this._videoRef = React.createRef();
     }
 
     _addStreamToVideo() {
-        if (this._videoRef.current && this._videoRef.current.srcObject !== this.props.stream) {
+        if (this._videoRef.current && this._videoRef.current.srcObject !== this.props.stream && this.props.stream) {
+
             this._videoRef.current.srcObject = this.props.stream;
 
             console.log('VIDEO srcObject not set', this.props.stream, this._videoRef);
@@ -79,6 +83,12 @@ class Video extends Component {
         this._addStreamToVideo();
     }
 
+    componentWillUnmount() {
+        if (this.state.pipEnabled) {
+            this.togglePiP()
+        }
+    }
+
     mouseOver() {
         this.setState({controlsVisible: true})
     }
@@ -101,11 +111,36 @@ class Video extends Component {
         this.setState({audioMuted: !this.state.audioMuted});
     }
 
+    async togglePiP() {
+        console.log('attempting to pip');
+        if (this.state.pipEnabled) {
+            try {
+                await document.exitPictureInPicture();
+            } catch(err) {
+                console.log('error exiting picture in picture');
+            }
+        }else {
+            try {
+                if (this._videoRef.current !== document.pictureInPictureElement) {
+                    await this._videoRef.current.requestPictureInPicture();
+                    this.setState({pipEnabled: true})
+                }
+            }
+            catch(error) {
+                // TODO: Show error message to user.
+                console.log('error!', error)
+            }
+            finally {
+
+            }
+        }
+    }
+
     render() {
 
         //should be able to hover over each one and mute it
         let { muted, enableControls, onSelect, stream, selected, classes, inGrid, previewVideo, myStreamGrid } = this.props;
-        let { controlsVisible, audioMuted, videoMuted } = this.state;
+        let { controlsVisible, audioMuted, videoMuted, pipEnabled } = this.state;
 
         let selectedClassNames = [classes.root, (selected ? classes.selected : '')].join(' ');
 
@@ -137,6 +172,9 @@ class Video extends Component {
                         : null }
                         <IconButton edge="end" color="inherit" aria-label="Video Off"  onClick={this.toggleVideoMute.bind(this)}>
                             {!videoMuted ? <VideoCamIcon /> : <VideoCamOffIcon /> }
+                        </IconButton>
+                        <IconButton edge="end" color="inherit" aria-label="PiP"  onClick={this.togglePiP.bind(this)}>
+                            {!pipEnabled ? <PictureInPictureIcon /> : <CancelIcon />}
                         </IconButton>
                     </span>
                 : null }
