@@ -54,7 +54,6 @@ class Video extends Component {
 
     _addStreamToVideo() {
         if (this._videoRef.current && this._videoRef.current.srcObject !== this.props.stream) {
-            this._videoRef.current.autoplay = true;
             this._videoRef.current.srcObject = this.props.stream;
 
             console.log('VIDEO srcObject not set', this.props.stream, this._videoRef);
@@ -141,7 +140,7 @@ class Video extends Component {
                         </IconButton>
                     </span>
                 : null }
-                <video className={videoClassNames} ref={this._videoRef} muted={muted}/>
+                <video className={videoClassNames} ref={this._videoRef} autoPlay muted={muted}/>
 
             </div>
         );
