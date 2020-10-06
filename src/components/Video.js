@@ -7,7 +7,8 @@ import {
     VideocamOffOutlined as VideoCamOffIcon,
     VideocamOutlined as VideoCamIcon,
     PictureInPicture as PictureInPictureIcon,
-    Cancel as CancelIcon
+    Cancel as CancelIcon,
+    Fullscreen as FullscreenIcon
 } from '@material-ui/icons';
 
 const styles = theme => ({
@@ -72,6 +73,10 @@ class Video extends Component {
                 }
                 console.log('playing video', this._videoRef);
             };
+
+            this._videoRef.current.addEventListener('leavepictureinpicture', (event) => {
+                this.setState({pipEnabled: false});
+            });
         }
     }
 
@@ -136,6 +141,19 @@ class Video extends Component {
         }
     }
 
+    async enableFullscreen() {
+        try {
+            await this._videoRef.current.requestFullscreen();
+        }
+        catch(error) {
+            // TODO: Show error message to user.
+            console.log('error!', error)
+        }
+        finally {
+
+        }
+    }
+
     render() {
 
         //should be able to hover over each one and mute it
@@ -175,6 +193,9 @@ class Video extends Component {
                         </IconButton>
                         <IconButton edge="end" color="inherit" aria-label="PiP"  onClick={this.togglePiP.bind(this)}>
                             {!pipEnabled ? <PictureInPictureIcon /> : <CancelIcon />}
+                        </IconButton>
+                        <IconButton edge="end" color="inherit" aria-label="FullScreen"  onClick={this.enableFullscreen.bind(this)}>
+                            <FullscreenIcon />
                         </IconButton>
                     </span>
                 : null }
