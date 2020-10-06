@@ -45,26 +45,13 @@ export default class SipSession extends events.EventEmitter {
 			 * Technically theres one media stream with multiple tracks, one audio and X video
 			 */
 
-			pc.ontrack = (event) => {
+			pc.addEventListener('track', (event) => {
+				this.emit('newTrack', event);
+			});
 
-				if (event.track.kind === 'video') {
-					event.track.enabled = false;
-				}
-
-				event.streams.forEach((stream) => {
-					//check to make sure the stream actually has tracks....
-					console.log('YO', event);
-					this.emit('newStream', stream);
-				});
-			};
-
-			//rtc.connection.onremovestream = function (event) {
-
-
-			pc.onremovetrack = (event) => {
-				console.log('track removed', event);
-				this.emit('streamRemoved', event.stream);
-			};
+			pc.addEventListener('removestream', (event) => {
+				console.log('remove stream', event)
+			});
 		};
 
 		if (this._rtcSession._connection) {
@@ -76,6 +63,18 @@ export default class SipSession extends events.EventEmitter {
 				_attachPCListeners(pc);
 			});
 		}
+
+		// i dont want the empty video stream sent back to me....
+		// this._rtcSession.on('sdp', async (evt) => {
+		// 	if (evt.originator === 'local' && this._rtcSession.isInProgress() && evt.type === 'offer') {
+		// 		this._rtcSession._connection.getTransceivers().forEach(async (transceiver) => {
+		// 			transceiver.direction = 'sendonly';
+		// 			let offer = await this._rtcSession._connection.createOffer();
+		// 			evt.sdp = offer;
+		// 		});
+		// 	}
+		// });
+
 
 		this._rtcSession.on('accepted', () => {
 			this._status = 'answered';

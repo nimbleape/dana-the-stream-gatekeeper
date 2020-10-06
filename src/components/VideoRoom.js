@@ -244,17 +244,41 @@ class VideoRoom extends Component {
 
     handleSession (session) {
         this.setState({ session });
-        session.on('newStream', (stream) => {
+
+        session.on('newTrack', (evt) => {
+
+            let stream = evt.streams[0];
+
+            console.log(evt);
+
+            //this shouldnt be needed but alas I still get a video track with the audio track...
+            if (this.state.streams.has(stream.id) || (this.state.remoteAudioStream && this.state.remoteAudioStream.id === stream.id)) {
+                return;
+            }
+
+            let track = evt.track;
+
+            track.addEventListener('ended', () => {
+                this.setState((prevState) => {
+                    let streams = prevState.streams;
+                    streams.delete(stream.id);
+                    return {
+                        ...prevState,
+                        streams
+                    }
+                });
+            })
 
             //theres only one audio track from asterisk
-            if (stream.getAudioTracks().length) {
+            if (track.kind === 'audio') {
                 console.log('got a stream with audio track', stream);
                 this.setState({remoteAudioStream: stream});
                 this._remoteAudio = new Audio();
                 this._remoteAudio.srcObject = this.state.remoteAudioStream;
                 this._remoteAudio.play();
             } else {
-                console.log('got a stream with no audio tracks', stream.id, stream.getTracks());
+
+                console.log('non audio track', track.kind);
 
                 if (!this.state.streams.has(stream.id)) {
                     let component = (<Video stream={stream} muted={false} enableControls={true} inGrid={true}/>)
@@ -286,16 +310,16 @@ class VideoRoom extends Component {
 
         });
 
-        session.on('streamRemoved', (stream) => {
-            this.setState((prevState) => {
-                let streams = prevState.streams;
-                streams.delete(stream.id);
-                return {
-                    ...prevState,
-                    streams
-                }
-            });
-        });
+        // session.on('streamRemoved', (stream) => {
+        //     this.setState((prevState) => {
+        //         let streams = prevState.streams;
+        //         streams.delete(stream.id);
+        //         return {
+        //             ...prevState,
+        //             streams
+        //         }
+        //     });
+        // });
 
         session.on('terminate', (endInfo) => {
             if (session.status === 'failed') {
