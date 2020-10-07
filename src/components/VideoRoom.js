@@ -7,6 +7,7 @@ import Video from './Video';
 import TopBar from './TopBar';
 import { Beforeunload } from 'react-beforeunload';
 import clsx from 'clsx';
+import ScrollableFeed from 'react-scrollable-feed';
 
 import {
     Avatar,
@@ -653,14 +654,14 @@ class VideoRoom extends Component {
     }
 
     _getChatListComponent() {
-        return Array.from(this.state.chat).reverse().map((chat) => (
+        return Array.from(this.state.chat).map((chat, i) => (
             <ListItem divider={true} alignItems="flex-start">
                 <ListItemText
                     primary={chat.name}
                     secondary={chat.text}
                 />
             </ListItem>
-        ))
+        ));
     }
 
     _handleSnackClose(event, reason) {
@@ -798,12 +799,14 @@ class VideoRoom extends Component {
                         open={this.state.chatDrawerOpen}
                         onClose={() => this.setState({chatDrawerOpen: !this.state.chatDrawerOpen})}
                     >
+                        <ScrollableFeed>
+                            {this._getChatListComponent()}
+                        </ScrollableFeed>
                         { this.state.session && this.state.session.jssipRtcSession && (
                             <form onSubmit={this._sendChat.bind(this)} noValidate autoComplete="off">
                                 <TextField
                                     id="chat"
                                     label="Chat"
-                                    multiline
                                     fullWidth
                                     rows={4}
                                     inputRef={(c) => {this.textChatRef = c}}
@@ -819,9 +822,6 @@ class VideoRoom extends Component {
                                 </Button>
                             </form>
                         )}
-                        <List className={classes.drawerList}>
-                            {this._getChatListComponent()}
-                        </List>
                     </Drawer>
                     <Snackbar
                         anchorOrigin={{ vertical: 'bottom', horizontal: 'center' }}

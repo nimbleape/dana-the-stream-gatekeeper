@@ -21,6 +21,7 @@
     "react-dom": "^16.11.0",
     "react-router-dom": "^5.1.2",
     "react-scripts": "3.2.0",
+    "react-scrollable-feed": "^1.2.0",
     "sdp-transform": "^2.14.0",
     "uuid": "^3.3.3"
   },
