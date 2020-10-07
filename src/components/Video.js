@@ -65,7 +65,7 @@ class Video extends Component {
     }
 
     _addStreamToVideo() {
-        if (this._videoRef.current && this._videoRef.current.srcObject !== this.props.stream && this.props.stream) {
+        if (this._videoRef.current && this._videoRef.current.srcObject !== this.props.stream) {
 
             this._videoRef.current.srcObject = this.props.stream;
 
@@ -183,8 +183,6 @@ class Video extends Component {
         if (stream && stream.getAudioTracks().length) {
             hasStreamGotAudioTrack = true;
         }
-
-        console.log('channel data', channelData);
 
         return (
             <div onClick={() => {

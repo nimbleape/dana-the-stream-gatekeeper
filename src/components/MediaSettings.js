@@ -189,7 +189,7 @@ function MediaSettings(props) {
                                 </Select>
                             </FormControl>
 
-                            <FormControl className={classes.formControl}>
+                            {/* <FormControl className={classes.formControl}>
                                 <InputLabel id='audio-output-select-label'>Audio Output</InputLabel>
                                 <Select
                                     labelId='audio-output-select-label'
@@ -201,7 +201,7 @@ function MediaSettings(props) {
                                 >
                                     {devicesList(devices && devices.audiooutput)}
                                 </Select>
-                            </FormControl>
+                            </FormControl> */}
 
                             <Button
                                 type='submit'

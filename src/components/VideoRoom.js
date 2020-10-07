@@ -367,13 +367,21 @@ class VideoRoom extends Component {
         }
     }
 
+    _setMute(type, stream, state) {
+        console.log('setMute');
+        stream[`get${type}Tracks`]().forEach((track) => {
+            console.log(state ? 'muting' : 'unmuting', track);
+            track.enabled = !state;
+            console.log(state ? 'muting' : 'unmuting', track);
+        });
+    }
+
     async _call() {
         const { match } = this.props;
         this.setState({connect: true});
         if (match.params.name) {
             this._sip.on('connected', () => {
-                let localCameraStream = this.state.localStreams.get('local-camera').clone();
-                this._sip.call(match.params.name, localCameraStream);
+                this._sip.call(match.params.name, this.state.localStreams.get('local-camera'));
             });
             if (this._mqtt) {
                 try {
@@ -429,6 +437,12 @@ class VideoRoom extends Component {
         this._sip.on('session', this._boundOnSession);
     }
 
+    componentDidUpdate(prevProps) {
+        if (prevProps.chosenAudioInput !== this.props.chosenAudioInput || prevProps.chosenVideoInput !== this.props.chosenVideoInput) {
+            this.getStream();
+        }
+    }
+
     _terminate() {
         this.state.session && this.state.session.terminate();
     }
@@ -451,6 +465,8 @@ class VideoRoom extends Component {
     _renderConnectModal() {
         const { classes, history } = this.props;
         const { localStreams } = this.state;
+
+        let stream = localStreams.get('local-camera');
 
         return (
             <Fragment>
@@ -503,7 +519,7 @@ class VideoRoom extends Component {
     _stopScreenShare() {
         const { session } = this.state;
 
-        this._screenshareTransceiver.stop();
+        this._screenshareTransceiver && this._screenshareTransceiver.stop();
 
         let screenShareStream = this.state.localStreams.get('screen-share');
         if (screenShareStream) {
