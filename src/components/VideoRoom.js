@@ -20,7 +20,8 @@ import {
     List,
     ListItemText,
     ListItem,
-    TextField
+    TextField,
+    Tooltip
 } from '@material-ui/core';
 
 import {
@@ -33,7 +34,8 @@ import {
     Mic as MicIcon,
     MicOff as MicOffIcon,
     Forum as ForumIcon,
-    Chat as ChatIcon
+    SpeakerNotes as ChatIcon,
+    SpeakerNotesOff as ChatOffIcon
 } from '@material-ui/icons';
 
 const drawerWidth = 240;
@@ -708,34 +710,65 @@ class VideoRoom extends Component {
                 })}>
                     <TopBar>
                         { remoteAudioMuted ?
-                            <IconButton edge='end' color='inherit' aria-label='Un-mmute Remote Audio'  onClick={this._toggleRemoteAudio.bind(this)}>
-                                <MicOffIcon />
-                            </IconButton>
+                            <Tooltip title="Un-mute Remote Audio">
+                                <IconButton edge='end' color='inherit' aria-label='Un-mmute Remote Audio'  onClick={this._toggleRemoteAudio.bind(this)}>
+                                    <MicOffIcon />
+                                </IconButton>
+                            </Tooltip>
                         :
-                            <IconButton edge='end' color='inherit' aria-label='Mute Remote Audio'  onClick={this._toggleRemoteAudio.bind(this)}>
-                                <MicIcon />
-                            </IconButton>
+                            <Tooltip title="Mute Remote Audio">
+                                <IconButton edge='end' color='inherit' aria-label='Mute Remote Audio'  onClick={this._toggleRemoteAudio.bind(this)}>
+                                    <MicIcon />
+                                </IconButton>
+                            </Tooltip>
                         }
                         { screensharing ?
-                            <IconButton edge='end' color='inherit' aria-label='Stop Screen Share'  onClick={this._stopScreenShare.bind(this)}>
-                                <StopScreenShareIcon />
-                            </IconButton>
+                            <Tooltip title="Stop Screen Share">
+                                <IconButton edge='end' color='inherit' aria-label='Stop Screen Share'  onClick={this._stopScreenShare.bind(this)}>
+                                    <StopScreenShareIcon />
+                                </IconButton>
+                            </Tooltip>
                         :
-                            <IconButton edge='end' color='inherit' aria-label='Screen Share'  onClick={this._startScreenShare.bind(this)}>
-                                <ScreenShareIcon />
-                            </IconButton>
+                            <Tooltip title="Start Screen Share">
+                                <IconButton edge='end' color='inherit' aria-label='Screen Share'  onClick={this._startScreenShare.bind(this)}>
+                                    <ScreenShareIcon />
+                                </IconButton>
+                            </Tooltip>
                         }
+                        <Tooltip title="Open Transcription Window">
+                            <IconButton edge='end' color='inherit' aria-label='Transcription'  onClick={() => this.setState({transcriptionDrawerOpen: !this.state.transcriptionDrawerOpen})}>
+                                <ForumIcon />
+                            </IconButton>
+                        </Tooltip>
+                        { false && (
+                        { chatDrawerOpen ?
+                            <Tooltip title="Close Chat">
+                                <IconButton edge='end' color='inherit' aria-label='Chat'  onClick={() => this.setState({chatDrawerOpen: !this.state.chatDrawerOpen})}>
+                                    <ChatOffIcon />
+                                </IconButton>
+                            </Tooltip>
+                        :
+                            <Tooltip title="Open Chat">
+                                <IconButton edge='end' color='inherit' aria-label='Chat'  onClick={() => this.setState({chatDrawerOpen: !this.state.chatDrawerOpen})}>
+                                    <ChatIcon />
+                                </IconButton>
+                            </Tooltip>
+                        })}
                         { mqttUri && (
                             <IconButton edge='end' color='inherit' aria-label='Transcription'  onClick={() => this.setState({transcriptionDrawerOpen: !this.state.transcriptionDrawerOpen})}>
                                 <ForumIcon />
                             </IconButton>
                         )}
-                        <IconButton edge='end' color='inherit' aria-label='Chat'  onClick={() => this.setState({chatDrawerOpen: !this.state.chatDrawerOpen})}>
-                            <ChatIcon />
-                        </IconButton>
-                        <IconButton edge='end' color='inherit' aria-label='Back'  onClick={() => history.push('/')}>
-                            <BackIcon />
-                        </IconButton>
+                        <Tooltip title="Open Chat">
+                            <IconButton edge='end' color='inherit' aria-label='Chat'  onClick={() => this.setState({chatDrawerOpen: !this.state.chatDrawerOpen})}>
+                                <ChatIcon />
+                            </IconButton>
+                        </Tooltip>
+                        <Tooltip title="Leave">
+                            <IconButton edge='end' color='inherit' aria-label='Back'  onClick={() => history.push('/')}>
+                                <BackIcon />
+                            </IconButton>
+                        </Tooltip>
                     </TopBar>
 
                     {this._renderStreamsContainer(streams)}
