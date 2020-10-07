@@ -1,5 +1,6 @@
 import React, { Component } from 'react';
 import IconButton from '@material-ui/core/IconButton';
+import Chip from '@material-ui/core/Chip';
 import { withStyles } from '@material-ui/styles';
 import {
     MicOutlined as MicIcon,
@@ -24,6 +25,13 @@ const styles = theme => ({
     buttons: {
         position: 'absolute',
         bottom: 0,
+        width: '100%',
+        textAlign: 'center',
+        zIndex: 100
+    },
+    name: {
+        position: 'absolute',
+        top: 0,
         width: '100%',
         textAlign: 'center',
         zIndex: 100
@@ -77,6 +85,7 @@ class Video extends Component {
             this._videoRef.current.addEventListener('leavepictureinpicture', (event) => {
                 this.setState({pipEnabled: false});
             });
+
         }
     }
 
@@ -157,7 +166,7 @@ class Video extends Component {
     render() {
 
         //should be able to hover over each one and mute it
-        let { muted, enableControls, onSelect, stream, selected, classes, inGrid, previewVideo, myStreamGrid } = this.props;
+        let { muted, enableControls, onSelect, stream, selected, classes, inGrid, previewVideo, myStreamGrid, channelData } = this.props;
         let { controlsVisible, audioMuted, videoMuted, pipEnabled } = this.state;
 
         let selectedClassNames = [classes.root, (selected ? classes.selected : '')].join(' ');
@@ -175,12 +184,19 @@ class Video extends Component {
             hasStreamGotAudioTrack = true;
         }
 
+        console.log('channel data', channelData);
+
         return (
             <div onClick={() => {
                 if (onSelect) {
                     onSelect(stream);
                 }
             }} onMouseLeave={this.mouseOut.bind(this)} onMouseEnter={this.mouseOver.bind(this)} className={selectedClassNames}>
+                {channelData && channelData.caller && channelData.caller.name && (
+                    <span className={classes.name}>
+                        <Chip label={channelData.caller.name} color="secondary" />
+                    </span>
+                )}
                 {enableControls && controlsVisible ?
                     <span className={classes.buttons}>
                         {hasStreamGotAudioTrack ?
@@ -199,6 +215,7 @@ class Video extends Component {
                         </IconButton>
                     </span>
                 : null }
+
                 <video className={videoClassNames} ref={this._videoRef} autoPlay muted={muted}/>
 
             </div>

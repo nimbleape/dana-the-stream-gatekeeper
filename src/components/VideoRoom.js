@@ -110,6 +110,7 @@ class VideoRoom extends Component {
             remoteAudioMuted: false,
             transcription: new Map(),
             chat: new Set(),
+            participantList: new Map()
         };
 
         try {
@@ -249,7 +250,7 @@ class VideoRoom extends Component {
         this.setState({ session });
 
         session.on('newTrack', (evt) => {
-
+            let { participantList } = this.state;
             let stream = evt.streams[0];
 
             console.log(evt);
@@ -284,7 +285,16 @@ class VideoRoom extends Component {
                 console.log('non audio track', track.kind);
 
                 if (!this.state.streams.has(stream.id)) {
-                    let component = (<Video key={stream.id} stream={stream} muted={false} enableControls={true} inGrid={true}/>)
+
+                    let foundChannel = null;
+                    Array.from(participantList.values()).some((participant) => {
+                        if (participant.msids && participant.msids.includes(track.id)) {
+                            foundChannel = participant;
+                            return true;
+                        }
+                        return false;
+                    })
+                    let component = (<Video key={stream.id} channelData={foundChannel} stream={stream} muted={false} enableControls={true} inGrid={true}/>)
 
                     this.setState((prevState) => {
                         let streams = prevState.streams;
@@ -296,33 +306,7 @@ class VideoRoom extends Component {
                     });
                 }
             }
-
-            // stream.onremovetrack = () => {
-            //     console.log('track ended');
-            //     if (!stream.getTracks().length) {
-            //         this.setState((prevState) => {
-            //             let streams = prevState.streams;
-            //             streams.delete(stream.id);
-            //             return {
-            //                 ...prevState,
-            //                 streams
-            //             }
-            //         });
-            //     }
-            // };
-
         });
-
-        // session.on('streamRemoved', (stream) => {
-        //     this.setState((prevState) => {
-        //         let streams = prevState.streams;
-        //         streams.delete(stream.id);
-        //         return {
-        //             ...prevState,
-        //             streams
-        //         }
-        //     });
-        // });
 
         session.on('terminate', (endInfo) => {
             if (session.status === 'failed') {
@@ -337,13 +321,20 @@ class VideoRoom extends Component {
             }
         })
 
+        session.on('participantLabelsUpdate', (ids) => {
+            //go find the list of participants and update it with a list of the msids
+            this._participantIds = ids;
+        })
+
         this._sip.on('participantWelcomeReceived', (msg) => {
             console.log('participant welcome', msg)
+            this._setChannelInfoFromMessage(msg);
         })
 
         this._sip.on('participantInfoReceived', (msg) => {
             console.log('participant info', msg)
-        })
+            this._setChannelInfoFromMessage(msg);
+        });
 
         this._sip.on('messageReceived', (msg) => {
             console.log('got a message', msg);
@@ -351,6 +342,16 @@ class VideoRoom extends Component {
             chat.add({name: msg.From, text: msg.Body});
             this.setState({ chat });
         })
+    }
+
+    _setChannelInfoFromMessage(msg) {
+        let participants = new Map();
+        console.log('IDS', this._participantIds);
+        msg.channels.forEach((channel) => {
+            participants.set(channel.id, {...channel, msids: this._participantIds.get(channel.id/1)})
+        });
+
+        this.setState({participantList: participants});
     }
 
     _handleMqttMessage(topic, message) {
@@ -434,6 +435,9 @@ class VideoRoom extends Component {
 
     componentWillUnmount() {
         this._sip.removeAllListeners('session');
+        this._sip.removeAllListeners('participantWelcomeReceived');
+        this._sip.removeAllListeners('participantInfoReceived');
+        this._sip.removeAllListeners('messageReceived');
         if (this.state.session) {
             this.state.session.terminate();
         }
