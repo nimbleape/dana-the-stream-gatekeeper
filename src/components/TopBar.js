@@ -5,7 +5,8 @@ import { Toolbar, AppBar } from '@material-ui/core';
 const useStyles = makeStyles(theme => ({
     bar: {
         background: 'transparent',
-        boxShadow: 'none'
+        boxShadow: 'none',
+        zIndex: theme.zIndex.drawer + 1,
     },
     root: {
         flexGrow: 1,

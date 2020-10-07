@@ -6,6 +6,7 @@ import mqtt from 'async-mqtt';
 import Video from './Video';
 import TopBar from './TopBar';
 import { Beforeunload } from 'react-beforeunload';
+import clsx from 'clsx';
 
 import {
     Avatar,
@@ -35,12 +36,9 @@ import {
     Chat as ChatIcon
 } from '@material-ui/icons';
 
+const drawerWidth = 240;
+
 const styles = theme => ({
-    '@global': {
-        body: {
-            ackgroundColor: theme.palette.common.white,
-        },
-    },
     paper: {
         marginTop: theme.spacing(8),
         display: 'flex',
@@ -59,12 +57,8 @@ const styles = theme => ({
         margin: theme.spacing(3, 0, 2),
     },
     root: {
-        position: 'absolute',
-        top: 0,
-        bottom: 0,
-        left: 0,
-        right: 0,
-        overflow: 'hidden'
+        overflow: 'hidden',
+        minHeight: '100vh',
     },
     bottomRow: {
         position: 'absolute',
@@ -85,7 +79,17 @@ const styles = theme => ({
         marginRight: theme.spacing(1),
     },
     drawerList: {
-        width:'250px'
+        width: `${drawerWidth}px`
+    },
+    videoGrid: {
+        maxHeight: `calc(100vh - 56px)`,
+        minHeight: `calc(100vh - 56px)`
+    },
+    rootShiftRight: {
+        paddingRight: drawerWidth
+    },
+    rootShiftLeft: {
+        paddingLeft: drawerWidth
     }
 });
 
@@ -466,8 +470,6 @@ class VideoRoom extends Component {
         const { classes, history } = this.props;
         const { localStreams } = this.state;
 
-        let stream = localStreams.get('local-camera');
-
         return (
             <Fragment>
                 <TopBar>
@@ -560,39 +562,22 @@ class VideoRoom extends Component {
     }
 
     _renderStreamsContainer(streams) {
-        let streamRows = []
-        // streamComponents.push(<Grid item>
-        //     <Video height={size} width={size} stream={myStream} muted={false} enableControls={true} onSelect={this.selectedStream.bind(this)} selected={this.state.selectedStream === myStream} />
-        // </Grid>);
 
-        // count how many streams there are and divide it by 2
-        // for now we're going to always say there are 2 rows and we'll deal with making it clever later
-        // ideally Asterisk would send us individual audio streams per video and so we'd do google meet
-        // type auto selecting based on active speaker
+        let { classes } = this.props;
 
-        //let numToRender = Math.floor(streams.size / 2);
         let numToRender = streams.size;
 
         let streamsValue = streams.values();
-       //[0, 1].forEach((key) => {
-            streamRows.push(<Grid
-                container
-                direction="row"
-                justify="center"
-                alignItems="center"
-                spacing={2}
-                // key={key}
-            >
-                {this._renderStreams(streamsValue, numToRender)}
-            </Grid>);
-            //numToRender = streams.size - numToRender;
-        //});
-
-        // if(!this.state.selectedStream && streams.length) {
-        //     this.state.selectedStream = streams.values().next().value;
-        // }
-
-        return streamRows;
+        return (<Grid
+            className={classes.videoGrid}
+            container
+            direction="row"
+            justify="center"
+            alignItems="center"
+            spacing={2}
+        >
+            {this._renderStreams(streamsValue, numToRender)}
+        </Grid>);
     }
 
     _getTranscriptionListComponent() {
@@ -651,7 +636,7 @@ class VideoRoom extends Component {
     }
 
     render() {
-        let { localStreams, streams, connect, screensharing, snackOpen, errorMessage, remoteAudioMuted } = this.state;
+        let { localStreams, streams, connect, screensharing, snackOpen, errorMessage, remoteAudioMuted, transcriptionDrawerOpen, chatDrawerOpen } = this.state;
         let { classes, history }  = this.props;
 
         if (!connect) {
@@ -667,7 +652,10 @@ class VideoRoom extends Component {
 
         return (
             <Beforeunload onBeforeunload={this._terminate.bind(this)}>
-                <div className={classes.root}>
+                <div className={clsx(classes.root, {
+                [classes.rootShiftLeft]: transcriptionDrawerOpen,
+                [classes.rootShiftRight]: chatDrawerOpen,
+            })}>
                     <TopBar>
                         { remoteAudioMuted ?
                             <IconButton edge='end' color='inherit' aria-label='Un-mmute Remote Audio'  onClick={this._toggleRemoteAudio.bind(this)}>
@@ -705,17 +693,26 @@ class VideoRoom extends Component {
                         direction="row"
                         justify="flex-end"
                         alignItems="center"
-                        spacing={2}
                         className={classes.bottomRow}
                     >
                         {this._renderStreams(localStreamsValue, localStreams.size)}
                     </Grid>
-                    <Drawer anchor="left" open={this.state.transcriptionDrawerOpen} onClose={() => this.setState({transcriptionDrawerOpen: !this.state.transcriptionDrawerOpen})}>
+                    <Drawer
+                        anchor="left"
+                        variant="persistent"
+                        open={this.state.transcriptionDrawerOpen}
+                        onClose={() => this.setState({transcriptionDrawerOpen: !this.state.transcriptionDrawerOpen})}
+                    >
                         <List className={classes.drawerList}>
                             {this._getTranscriptionListComponent()}
                         </List>
                     </Drawer>
-                    <Drawer anchor="left" open={this.state.chatDrawerOpen} onClose={() => this.setState({chatDrawerOpen: !this.state.chatDrawerOpen})}>
+                    <Drawer
+                        anchor="right"
+                        variant="persistent"
+                        open={this.state.chatDrawerOpen}
+                        onClose={() => this.setState({chatDrawerOpen: !this.state.chatDrawerOpen})}
+                    >
                         { this.state.session && this.state.session.jssipRtcSession && (
                             <form onSubmit={this._sendChat.bind(this)} noValidate autoComplete="off">
                                 <TextField

@@ -70,7 +70,7 @@ function devicesList(devicesList) {
 
 function MediaSettings(props) {
 
-    let { dispatch, chosenAudioInput, chosenVideoInput, chosenAudioOutput, history } = props;
+    let { dispatch, chosenAudioInput, chosenVideoInput, history } = props;
     const classes = useStyles();
 
     const [devices, setDevices] = useState(null);

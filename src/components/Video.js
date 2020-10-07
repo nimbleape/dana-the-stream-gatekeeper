@@ -38,7 +38,8 @@ const styles = theme => ({
     },
     video: {
         objectFit: 'cover',
-        maxWidth: '100%'
+        maxWidth: '100%',
+        borderRadius: '5px'
     },
     videoPreview: {
         width: '100%'
