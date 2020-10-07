@@ -284,7 +284,7 @@ class VideoRoom extends Component {
                 console.log('non audio track', track.kind);
 
                 if (!this.state.streams.has(stream.id)) {
-                    let component = (<Video stream={stream} muted={false} enableControls={true} inGrid={true}/>)
+                    let component = (<Video key={stream.id} stream={stream} muted={false} enableControls={true} inGrid={true}/>)
 
                     this.setState((prevState) => {
                         let streams = prevState.streams;
@@ -641,7 +641,7 @@ class VideoRoom extends Component {
         let streamContainerMap = new Map();
 
         localStreams.forEach((stream) => {
-            streamContainerMap.set(stream.id, <Video stream={stream} myStreamGrid={true} enableControls={true} muted={true}/>);
+            streamContainerMap.set(stream.id, <Video key={stream.id} stream={stream} myStreamGrid={true} enableControls={true} muted={true}/>);
         });
         let localStreamsValue = streamContainerMap.values();
 
