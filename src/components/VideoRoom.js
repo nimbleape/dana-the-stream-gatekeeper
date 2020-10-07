@@ -157,6 +157,9 @@ class VideoRoom extends Component {
                 audio: false
             });
 
+            let track = stream.getVideoTracks()[0];
+            track.contentHint = 'detail';
+
             this.setState((prevState) => {
                 let localStreams = prevState.localStreams;
 
@@ -170,7 +173,7 @@ class VideoRoom extends Component {
                 }
             });
 
-            stream.onremovetrack = () => {
+            track.onended = () => {
                 this._stopScreenShare();
             };
         } catch(err) {
@@ -484,20 +487,20 @@ class VideoRoom extends Component {
             //go add the screen share track (from the screenShareStream) into the localStream
             let screenShareStream = await this.getScreenShareMedia();
 
-            screenShareStream.getVideoTracks().forEach((track) => {
-                console.log('adding track', track)
-                session.jssipRtcSession.connection.addTransceiver(track, {direction: 'sendonly'});
-            });
+            this._screenshareTransceiver = session.jssipRtcSession.connection.addTransceiver(screenShareStream.getVideoTracks()[0], {direction: 'sendonly', streams: [screenShareStream]});
 
-
-            if(!session.jssipRtcSession.renegotiate()) {
-                console.log('renegotiating');
+            if(session.jssipRtcSession.renegotiate()) {
+                console.log('renegotiating adding screenshare');
             }
             this.setState({screensharing: true});
         }
     }
 
     _stopScreenShare() {
+        const { session } = this.state;
+
+        this._screenshareTransceiver.stop();
+
         let screenShareStream = this.state.localStreams.get('screen-share');
         if (screenShareStream) {
 
@@ -515,6 +518,11 @@ class VideoRoom extends Component {
                 }
             });
         }
+
+        if(session.jssipRtcSession.renegotiate()) {
+            console.log('renegotiating removal of screen share');
+        }
+
         this.setState({screensharing: false});
     }
 
@@ -542,21 +550,23 @@ class VideoRoom extends Component {
         // ideally Asterisk would send us individual audio streams per video and so we'd do google meet
         // type auto selecting based on active speaker
 
-        let numToRender = Math.floor(streams.size / 2);
+        //let numToRender = Math.floor(streams.size / 2);
+        let numToRender = streams.size;
+
         let streamsValue = streams.values();
-        [0, 1].forEach((key) => {
+       //[0, 1].forEach((key) => {
             streamRows.push(<Grid
                 container
                 direction="row"
                 justify="center"
                 alignItems="center"
                 spacing={2}
-                key={key}
+                // key={key}
             >
                 {this._renderStreams(streamsValue, numToRender)}
             </Grid>);
-            numToRender = streams.size - numToRender;
-        });
+            //numToRender = streams.size - numToRender;
+        //});
 
         // if(!this.state.selectedStream && streams.length) {
         //     this.state.selectedStream = streams.values().next().value;

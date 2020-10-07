@@ -14,7 +14,7 @@ import {
 const styles = theme => ({
     root: {
         position: 'relative',
-        borderRadius: '2px'
+        borderRadius: '5px'
     },
     selected: {
         borderWidth: '3px',
