@@ -27,6 +27,7 @@
   "scripts": {
     "start": "react-scripts start",
     "build": "react-scripts build",
+    "build:prefix": "REACT_APP_PREFIX=$npm_package_homepage react-scripts build",
     "test": "react-scripts test",
     "eject": "react-scripts eject"
   },
