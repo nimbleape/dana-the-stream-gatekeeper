@@ -7,6 +7,8 @@ import VideoRoom from './VideoRoom';
 import Login from './Login';
 import MediaSettings from './MediaSettings';
 
+const prefix = process.env.REACT_APP_PREFIX ? process.env.REACT_APP_PREFIX.replace('http://', '') : '/';
+
 const useStyles = makeStyles(theme => ({
     root: {
         display: 'flex',
@@ -20,7 +22,7 @@ const ReactRouter = () => {
     const classes = useStyles();
 
     return (
-        <Router>
+        <Router basename={prefix}>
             <div className={classes.root}>
                 <CssBaseline />
                 <Switch>

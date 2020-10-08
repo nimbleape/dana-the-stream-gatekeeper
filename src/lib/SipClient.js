@@ -3,6 +3,8 @@ import jssip from 'jssip';
 import Logger from './Logger';
 import SipSession from './SipSession';
 
+jssip.debug.enable('JsSIP:*');
+
 const logger = new Logger('SipClient');
 
 export default class SipClient extends events.EventEmitter {

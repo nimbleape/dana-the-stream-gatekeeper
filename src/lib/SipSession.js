@@ -2,6 +2,8 @@ import events from 'events';
 import jssip from 'jssip';
 import Logger from './Logger';
 import uuidv4 from 'uuid/v4';
+import * as sdpTransform from 'sdp-transform';
+
 
 const logger = new Logger('SipSession');
 
@@ -64,16 +66,29 @@ export default class SipSession extends events.EventEmitter {
 			});
 		}
 
-		// i dont want the empty video stream sent back to me....
-		// this._rtcSession.on('sdp', async (evt) => {
-		// 	if (evt.originator === 'local' && this._rtcSession.isInProgress() && evt.type === 'offer') {
-		// 		this._rtcSession._connection.getTransceivers().forEach(async (transceiver) => {
-		// 			transceiver.direction = 'sendonly';
-		// 			let offer = await this._rtcSession._connection.createOffer();
-		// 			evt.sdp = offer;
-		// 		});
-		// 	}
-		// });
+		this._rtcSession.on('sdp', async (evt) => {
+			// i dont want the empty video stream sent back to me.... but this doesnt work
+
+			// if (evt.originator === 'local' && this._rtcSession.isInProgress() && evt.type === 'offer') {
+			// 	this._rtcSession._connection.getTransceivers().forEach(async (transceiver) => {
+			// 		transceiver.direction = 'sendonly';
+			// 		let offer = await this._rtcSession._connection.createOffer();
+			// 		evt.sdp = offer;
+			// 	});
+			// }
+			if (evt.originator === 'remote') {
+				let participantIds = new Map();
+				//get the a=label= and a:msid
+				let sdp = sdpTransform.parse(evt.sdp);
+				console.log(sdp);
+				sdp.media.forEach((media) => {
+					if (media.label) {
+						participantIds.set(media.label, media.msid);
+					}
+				})
+				this.emit('participantLabelsUpdate', participantIds);
+			}
+		});
 
 
 		this._rtcSession.on('accepted', () => {

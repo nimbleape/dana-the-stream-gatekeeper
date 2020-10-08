@@ -6,6 +6,7 @@ import mqtt from 'async-mqtt';
 import Video from './Video';
 import TopBar from './TopBar';
 import { Beforeunload } from 'react-beforeunload';
+import clsx from 'clsx';
 
 import {
     Avatar,
@@ -35,12 +36,9 @@ import {
     Chat as ChatIcon
 } from '@material-ui/icons';
 
+const drawerWidth = 240;
+
 const styles = theme => ({
-    '@global': {
-        body: {
-            ackgroundColor: theme.palette.common.white,
-        },
-    },
     paper: {
         marginTop: theme.spacing(8),
         display: 'flex',
@@ -59,12 +57,8 @@ const styles = theme => ({
         margin: theme.spacing(3, 0, 2),
     },
     root: {
-        position: 'absolute',
-        top: 0,
-        bottom: 0,
-        left: 0,
-        right: 0,
-        overflow: 'hidden'
+        overflow: 'hidden',
+        minHeight: '100vh',
     },
     bottomRow: {
         position: 'absolute',
@@ -85,7 +79,17 @@ const styles = theme => ({
         marginRight: theme.spacing(1),
     },
     drawerList: {
-        width:'250px'
+        width: `${drawerWidth}px`
+    },
+    videoGrid: {
+        maxHeight: `calc(100vh - 56px)`,
+        minHeight: `calc(100vh - 56px)`
+    },
+    rootShiftRight: {
+        paddingRight: drawerWidth
+    },
+    rootShiftLeft: {
+        paddingLeft: drawerWidth
     }
 });
 
@@ -110,6 +114,7 @@ class VideoRoom extends Component {
             remoteAudioMuted: false,
             transcription: new Map(),
             chat: new Set(),
+            participantList: new Map()
         };
 
         try {
@@ -157,6 +162,9 @@ class VideoRoom extends Component {
                 audio: false
             });
 
+            let track = stream.getVideoTracks()[0];
+            track.contentHint = 'detail';
+
             this.setState((prevState) => {
                 let localStreams = prevState.localStreams;
 
@@ -170,7 +178,7 @@ class VideoRoom extends Component {
                 }
             });
 
-            stream.onremovetrack = () => {
+            track.onended = () => {
                 this._stopScreenShare();
             };
         } catch(err) {
@@ -246,7 +254,7 @@ class VideoRoom extends Component {
         this.setState({ session });
 
         session.on('newTrack', (evt) => {
-
+            let { participantList } = this.state;
             let stream = evt.streams[0];
 
             console.log(evt);
@@ -281,7 +289,16 @@ class VideoRoom extends Component {
                 console.log('non audio track', track.kind);
 
                 if (!this.state.streams.has(stream.id)) {
-                    let component = (<Video stream={stream} muted={false} enableControls={true} inGrid={true}/>)
+
+                    let foundChannel = null;
+                    Array.from(participantList.values()).some((participant) => {
+                        if (participant.msids && participant.msids.includes(track.id)) {
+                            foundChannel = participant;
+                            return true;
+                        }
+                        return false;
+                    })
+                    let component = (<Video key={stream.id} channelData={foundChannel} stream={stream} muted={false} enableControls={true} inGrid={true}/>)
 
                     this.setState((prevState) => {
                         let streams = prevState.streams;
@@ -293,33 +310,7 @@ class VideoRoom extends Component {
                     });
                 }
             }
-
-            // stream.onremovetrack = () => {
-            //     console.log('track ended');
-            //     if (!stream.getTracks().length) {
-            //         this.setState((prevState) => {
-            //             let streams = prevState.streams;
-            //             streams.delete(stream.id);
-            //             return {
-            //                 ...prevState,
-            //                 streams
-            //             }
-            //         });
-            //     }
-            // };
-
         });
-
-        // session.on('streamRemoved', (stream) => {
-        //     this.setState((prevState) => {
-        //         let streams = prevState.streams;
-        //         streams.delete(stream.id);
-        //         return {
-        //             ...prevState,
-        //             streams
-        //         }
-        //     });
-        // });
 
         session.on('terminate', (endInfo) => {
             if (session.status === 'failed') {
@@ -334,13 +325,20 @@ class VideoRoom extends Component {
             }
         })
 
+        session.on('participantLabelsUpdate', (ids) => {
+            //go find the list of participants and update it with a list of the msids
+            this._participantIds = ids;
+        })
+
         this._sip.on('participantWelcomeReceived', (msg) => {
             console.log('participant welcome', msg)
+            this._setChannelInfoFromMessage(msg);
         })
 
         this._sip.on('participantInfoReceived', (msg) => {
             console.log('participant info', msg)
-        })
+            this._setChannelInfoFromMessage(msg);
+        });
 
         this._sip.on('messageReceived', (msg) => {
             console.log('got a message', msg);
@@ -348,6 +346,16 @@ class VideoRoom extends Component {
             chat.add({name: msg.From, text: msg.Body});
             this.setState({ chat });
         })
+    }
+
+    _setChannelInfoFromMessage(msg) {
+        let participants = new Map();
+        console.log('IDS', this._participantIds);
+        msg.channels.forEach((channel) => {
+            participants.set(channel.id, {...channel, msids: this._participantIds.get(channel.id/1)})
+        });
+
+        this.setState({participantList: participants});
     }
 
     _handleMqttMessage(topic, message) {
@@ -363,13 +371,21 @@ class VideoRoom extends Component {
         }
     }
 
+    _setMute(type, stream, state) {
+        console.log('setMute');
+        stream[`get${type}Tracks`]().forEach((track) => {
+            console.log(state ? 'muting' : 'unmuting', track);
+            track.enabled = !state;
+            console.log(state ? 'muting' : 'unmuting', track);
+        });
+    }
+
     async _call() {
         const { match } = this.props;
         this.setState({connect: true});
         if (match.params.name) {
             this._sip.on('connected', () => {
-                let localCameraStream = this.state.localStreams.get('local-camera').clone();
-                this._sip.call(match.params.name, localCameraStream);
+                this._sip.call(match.params.name, this.state.localStreams.get('local-camera'));
             });
             if (this._mqtt) {
                 try {
@@ -425,12 +441,21 @@ class VideoRoom extends Component {
         this._sip.on('session', this._boundOnSession);
     }
 
+    componentDidUpdate(prevProps) {
+        if (prevProps.chosenAudioInput !== this.props.chosenAudioInput || prevProps.chosenVideoInput !== this.props.chosenVideoInput) {
+            this.getStream();
+        }
+    }
+
     _terminate() {
         this.state.session && this.state.session.terminate();
     }
 
     componentWillUnmount() {
         this._sip.removeAllListeners('session');
+        this._sip.removeAllListeners('participantWelcomeReceived');
+        this._sip.removeAllListeners('participantInfoReceived');
+        this._sip.removeAllListeners('messageReceived');
         if (this.state.session) {
             this.state.session.terminate();
         }
@@ -484,20 +509,20 @@ class VideoRoom extends Component {
             //go add the screen share track (from the screenShareStream) into the localStream
             let screenShareStream = await this.getScreenShareMedia();
 
-            screenShareStream.getVideoTracks().forEach((track) => {
-                console.log('adding track', track)
-                session.jssipRtcSession.connection.addTransceiver(track, {direction: 'sendonly'});
-            });
+            this._screenshareTransceiver = session.jssipRtcSession.connection.addTransceiver(screenShareStream.getVideoTracks()[0], {direction: 'sendonly', streams: [screenShareStream]});
 
-
-            if(!session.jssipRtcSession.renegotiate()) {
-                console.log('renegotiating');
+            if(session.jssipRtcSession.renegotiate()) {
+                console.log('renegotiating adding screenshare');
             }
             this.setState({screensharing: true});
         }
     }
 
     _stopScreenShare() {
+        const { session } = this.state;
+
+        this._screenshareTransceiver && this._screenshareTransceiver.stop();
+
         let screenShareStream = this.state.localStreams.get('screen-share');
         if (screenShareStream) {
 
@@ -515,6 +540,11 @@ class VideoRoom extends Component {
                 }
             });
         }
+
+        if(session.jssipRtcSession.renegotiate()) {
+            console.log('renegotiating removal of screen share');
+        }
+
         this.setState({screensharing: false});
     }
 
@@ -532,37 +562,22 @@ class VideoRoom extends Component {
     }
 
     _renderStreamsContainer(streams) {
-        let streamRows = []
-        // streamComponents.push(<Grid item>
-        //     <Video height={size} width={size} stream={myStream} muted={false} enableControls={true} onSelect={this.selectedStream.bind(this)} selected={this.state.selectedStream === myStream} />
-        // </Grid>);
 
-        // count how many streams there are and divide it by 2
-        // for now we're going to always say there are 2 rows and we'll deal with making it clever later
-        // ideally Asterisk would send us individual audio streams per video and so we'd do google meet
-        // type auto selecting based on active speaker
+        let { classes } = this.props;
 
-        let numToRender = Math.floor(streams.size / 2);
+        let numToRender = streams.size;
+
         let streamsValue = streams.values();
-        [0, 1].forEach((key) => {
-            streamRows.push(<Grid
-                container
-                direction="row"
-                justify="center"
-                alignItems="center"
-                spacing={2}
-                key={key}
-            >
-                {this._renderStreams(streamsValue, numToRender)}
-            </Grid>);
-            numToRender = streams.size - numToRender;
-        });
-
-        // if(!this.state.selectedStream && streams.length) {
-        //     this.state.selectedStream = streams.values().next().value;
-        // }
-
-        return streamRows;
+        return (<Grid
+            className={classes.videoGrid}
+            container
+            direction="row"
+            justify="center"
+            alignItems="center"
+            spacing={2}
+        >
+            {this._renderStreams(streamsValue, numToRender)}
+        </Grid>);
     }
 
     _getTranscriptionListComponent() {
@@ -621,7 +636,7 @@ class VideoRoom extends Component {
     }
 
     render() {
-        let { localStreams, streams, connect, screensharing, snackOpen, errorMessage, remoteAudioMuted } = this.state;
+        let { localStreams, streams, connect, screensharing, snackOpen, errorMessage, remoteAudioMuted, transcriptionDrawerOpen, chatDrawerOpen } = this.state;
         let { classes, history }  = this.props;
 
         if (!connect) {
@@ -631,13 +646,16 @@ class VideoRoom extends Component {
         let streamContainerMap = new Map();
 
         localStreams.forEach((stream) => {
-            streamContainerMap.set(stream.id, <Video stream={stream} myStreamGrid={true} enableControls={true} muted={true}/>);
+            streamContainerMap.set(stream.id, <Video key={stream.id} stream={stream} myStreamGrid={true} enableControls={true} muted={true}/>);
         });
         let localStreamsValue = streamContainerMap.values();
 
         return (
             <Beforeunload onBeforeunload={this._terminate.bind(this)}>
-                <div className={classes.root}>
+                <div className={clsx(classes.root, {
+                [classes.rootShiftLeft]: transcriptionDrawerOpen,
+                [classes.rootShiftRight]: chatDrawerOpen,
+            })}>
                     <TopBar>
                         { remoteAudioMuted ?
                             <IconButton edge='end' color='inherit' aria-label='Un-mmute Remote Audio'  onClick={this._toggleRemoteAudio.bind(this)}>
@@ -675,17 +693,26 @@ class VideoRoom extends Component {
                         direction="row"
                         justify="flex-end"
                         alignItems="center"
-                        spacing={2}
                         className={classes.bottomRow}
                     >
                         {this._renderStreams(localStreamsValue, localStreams.size)}
                     </Grid>
-                    <Drawer anchor="left" open={this.state.transcriptionDrawerOpen} onClose={() => this.setState({transcriptionDrawerOpen: !this.state.transcriptionDrawerOpen})}>
+                    <Drawer
+                        anchor="left"
+                        variant="persistent"
+                        open={this.state.transcriptionDrawerOpen}
+                        onClose={() => this.setState({transcriptionDrawerOpen: !this.state.transcriptionDrawerOpen})}
+                    >
                         <List className={classes.drawerList}>
                             {this._getTranscriptionListComponent()}
                         </List>
                     </Drawer>
-                    <Drawer anchor="left" open={this.state.chatDrawerOpen} onClose={() => this.setState({chatDrawerOpen: !this.state.chatDrawerOpen})}>
+                    <Drawer
+                        anchor="right"
+                        variant="persistent"
+                        open={this.state.chatDrawerOpen}
+                        onClose={() => this.setState({chatDrawerOpen: !this.state.chatDrawerOpen})}
+                    >
                         { this.state.session && this.state.session.jssipRtcSession && (
                             <form onSubmit={this._sendChat.bind(this)} noValidate autoComplete="off">
                                 <TextField
