@@ -7,6 +7,7 @@ import Video from './Video';
 import TopBar from './TopBar';
 import { Beforeunload } from 'react-beforeunload';
 import clsx from 'clsx';
+import ScrollableFeed from 'react-scrollable-feed';
 
 import {
     Avatar,
@@ -20,7 +21,8 @@ import {
     List,
     ListItemText,
     ListItem,
-    TextField
+    TextField,
+    Tooltip
 } from '@material-ui/core';
 
 import {
@@ -33,7 +35,8 @@ import {
     Mic as MicIcon,
     MicOff as MicOffIcon,
     Forum as ForumIcon,
-    Chat as ChatIcon
+    SpeakerNotes as ChatIcon,
+    SpeakerNotesOff as ChatOffIcon
 } from '@material-ui/icons';
 
 const drawerWidth = 240;
@@ -651,14 +654,14 @@ class VideoRoom extends Component {
     }
 
     _getChatListComponent() {
-        return Array.from(this.state.chat).reverse().map((chat) => (
+        return Array.from(this.state.chat).map((chat, i) => (
             <ListItem divider={true} alignItems="flex-start">
                 <ListItemText
                     primary={chat.name}
                     secondary={chat.text}
                 />
             </ListItem>
-        ))
+        ));
     }
 
     _handleSnackClose(event, reason) {
@@ -703,39 +706,53 @@ class VideoRoom extends Component {
         return (
             <Beforeunload onBeforeunload={this._terminate.bind(this)}>
                 <div className={clsx(classes.root, {
-                    [classes.rootShiftLeft]: transcriptionDrawerOpen,
-                    [classes.rootShiftRight]: chatDrawerOpen,
+                    [classes.rootShiftLeft]: chatDrawerOpen,
+                    [classes.rootShiftRight]: transcriptionDrawerOpen,
                 })}>
                     <TopBar>
                         { remoteAudioMuted ?
-                            <IconButton edge='end' color='inherit' aria-label='Un-mmute Remote Audio'  onClick={this._toggleRemoteAudio.bind(this)}>
-                                <MicOffIcon />
-                            </IconButton>
+                            <Tooltip title="Un-mute Remote Audio">
+                                <IconButton edge='end' color='inherit' aria-label='Un-mmute Remote Audio'  onClick={this._toggleRemoteAudio.bind(this)}>
+                                    <MicOffIcon />
+                                </IconButton>
+                            </Tooltip>
                         :
-                            <IconButton edge='end' color='inherit' aria-label='Mute Remote Audio'  onClick={this._toggleRemoteAudio.bind(this)}>
-                                <MicIcon />
-                            </IconButton>
+                            <Tooltip title="Mute Remote Audio">
+                                <IconButton edge='end' color='inherit' aria-label='Mute Remote Audio'  onClick={this._toggleRemoteAudio.bind(this)}>
+                                    <MicIcon />
+                                </IconButton>
+                            </Tooltip>
                         }
                         { screensharing ?
-                            <IconButton edge='end' color='inherit' aria-label='Stop Screen Share'  onClick={this._stopScreenShare.bind(this)}>
-                                <StopScreenShareIcon />
-                            </IconButton>
+                            <Tooltip title="Stop Screen Share">
+                                <IconButton edge='end' color='inherit' aria-label='Stop Screen Share'  onClick={this._stopScreenShare.bind(this)}>
+                                    <StopScreenShareIcon />
+                                </IconButton>
+                            </Tooltip>
                         :
-                            <IconButton edge='end' color='inherit' aria-label='Screen Share'  onClick={this._startScreenShare.bind(this)}>
-                                <ScreenShareIcon />
-                            </IconButton>
+                            <Tooltip title="Start Screen Share">
+                                <IconButton edge='end' color='inherit' aria-label='Screen Share'  onClick={this._startScreenShare.bind(this)}>
+                                    <ScreenShareIcon />
+                                </IconButton>
+                            </Tooltip>
                         }
-                        { mqttUri && (
-                            <IconButton edge='end' color='inherit' aria-label='Transcription'  onClick={() => this.setState({transcriptionDrawerOpen: !this.state.transcriptionDrawerOpen})}>
-                                <ForumIcon />
+                        <Tooltip title="Toggle Chat">
+                            <IconButton edge='end' color='inherit' aria-label='Chat'  onClick={() => this.setState({chatDrawerOpen: !this.state.chatDrawerOpen})}>
+                                <ChatIcon />
                             </IconButton>
+                        </Tooltip>
+                        { mqttUri && (
+                            <Tooltip title="Toggle Transcription">
+                                <IconButton edge='end' color='inherit' aria-label='Transcription'  onClick={() => this.setState({transcriptionDrawerOpen: !this.state.transcriptionDrawerOpen})}>
+                                    <ForumIcon />
+                                </IconButton>
+                            </Tooltip>
                         )}
-                        <IconButton edge='end' color='inherit' aria-label='Chat'  onClick={() => this.setState({chatDrawerOpen: !this.state.chatDrawerOpen})}>
-                            <ChatIcon />
-                        </IconButton>
-                        <IconButton edge='end' color='inherit' aria-label='Back'  onClick={() => history.push('/')}>
-                            <BackIcon />
-                        </IconButton>
+                        <Tooltip title="Leave">
+                            <IconButton edge='end' color='inherit' aria-label='Back'  onClick={() => history.push('/')}>
+                                <BackIcon />
+                            </IconButton>
+                        </Tooltip>
                     </TopBar>
 
                     {this._renderStreamsContainer(streams)}
@@ -752,25 +769,17 @@ class VideoRoom extends Component {
                     <Drawer
                         anchor="left"
                         variant="persistent"
-                        open={this.state.transcriptionDrawerOpen}
-                        onClose={() => this.setState({transcriptionDrawerOpen: !this.state.transcriptionDrawerOpen})}
-                    >
-                        <List className={classes.drawerList}>
-                            {this._getTranscriptionListComponent()}
-                        </List>
-                    </Drawer>
-                    <Drawer
-                        anchor="right"
-                        variant="persistent"
                         open={this.state.chatDrawerOpen}
                         onClose={() => this.setState({chatDrawerOpen: !this.state.chatDrawerOpen})}
                     >
+                        <ScrollableFeed>
+                            {this._getChatListComponent()}
+                        </ScrollableFeed>
                         { this.state.session && this.state.session.jssipRtcSession && (
                             <form onSubmit={this._sendChat.bind(this)} noValidate autoComplete="off">
                                 <TextField
                                     id="chat"
                                     label="Chat"
-                                    multiline
                                     fullWidth
                                     rows={4}
                                     inputRef={(c) => {this.textChatRef = c}}
@@ -786,8 +795,15 @@ class VideoRoom extends Component {
                                 </Button>
                             </form>
                         )}
+                    </Drawer>
+                    <Drawer
+                        anchor="right"
+                        variant="persistent"
+                        open={this.state.transcriptionDrawerOpen}
+                        onClose={() => this.setState({transcriptionDrawerOpen: !this.state.transcriptionDrawerOpen})}
+                    >
                         <List className={classes.drawerList}>
-                            {this._getChatListComponent()}
+                            {this._getTranscriptionListComponent()}
                         </List>
                     </Drawer>
                     <Snackbar
