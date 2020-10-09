@@ -706,8 +706,8 @@ class VideoRoom extends Component {
         return (
             <Beforeunload onBeforeunload={this._terminate.bind(this)}>
                 <div className={clsx(classes.root, {
-                    [classes.rootShiftLeft]: transcriptionDrawerOpen,
-                    [classes.rootShiftRight]: chatDrawerOpen,
+                    [classes.rootShiftLeft]: chatDrawerOpen,
+                    [classes.rootShiftRight]: transcriptionDrawerOpen,
                 })}>
                     <TopBar>
                         { remoteAudioMuted ?
@@ -736,35 +736,18 @@ class VideoRoom extends Component {
                                 </IconButton>
                             </Tooltip>
                         }
-                        <Tooltip title="Open Transcription Window">
-                            <IconButton edge='end' color='inherit' aria-label='Transcription'  onClick={() => this.setState({transcriptionDrawerOpen: !this.state.transcriptionDrawerOpen})}>
-                                <ForumIcon />
-                            </IconButton>
-                        </Tooltip>
-                        { false && (
-                        { chatDrawerOpen ?
-                            <Tooltip title="Close Chat">
-                                <IconButton edge='end' color='inherit' aria-label='Chat'  onClick={() => this.setState({chatDrawerOpen: !this.state.chatDrawerOpen})}>
-                                    <ChatOffIcon />
-                                </IconButton>
-                            </Tooltip>
-                        :
-                            <Tooltip title="Open Chat">
-                                <IconButton edge='end' color='inherit' aria-label='Chat'  onClick={() => this.setState({chatDrawerOpen: !this.state.chatDrawerOpen})}>
-                                    <ChatIcon />
-                                </IconButton>
-                            </Tooltip>
-                        })}
-                        { mqttUri && (
-                            <IconButton edge='end' color='inherit' aria-label='Transcription'  onClick={() => this.setState({transcriptionDrawerOpen: !this.state.transcriptionDrawerOpen})}>
-                                <ForumIcon />
-                            </IconButton>
-                        )}
-                        <Tooltip title="Open Chat">
+                        <Tooltip title="Toggle Chat">
                             <IconButton edge='end' color='inherit' aria-label='Chat'  onClick={() => this.setState({chatDrawerOpen: !this.state.chatDrawerOpen})}>
                                 <ChatIcon />
                             </IconButton>
                         </Tooltip>
+                        { mqttUri && (
+                            <Tooltip title="Toggle Transcription">
+                                <IconButton edge='end' color='inherit' aria-label='Transcription'  onClick={() => this.setState({transcriptionDrawerOpen: !this.state.transcriptionDrawerOpen})}>
+                                    <ForumIcon />
+                                </IconButton>
+                            </Tooltip>
+                        )}
                         <Tooltip title="Leave">
                             <IconButton edge='end' color='inherit' aria-label='Back'  onClick={() => history.push('/')}>
                                 <BackIcon />
@@ -785,16 +768,6 @@ class VideoRoom extends Component {
                     </Grid>
                     <Drawer
                         anchor="left"
-                        variant="persistent"
-                        open={this.state.transcriptionDrawerOpen}
-                        onClose={() => this.setState({transcriptionDrawerOpen: !this.state.transcriptionDrawerOpen})}
-                    >
-                        <List className={classes.drawerList}>
-                            {this._getTranscriptionListComponent()}
-                        </List>
-                    </Drawer>
-                    <Drawer
-                        anchor="right"
                         variant="persistent"
                         open={this.state.chatDrawerOpen}
                         onClose={() => this.setState({chatDrawerOpen: !this.state.chatDrawerOpen})}
@@ -822,6 +795,16 @@ class VideoRoom extends Component {
                                 </Button>
                             </form>
                         )}
+                    </Drawer>
+                    <Drawer
+                        anchor="right"
+                        variant="persistent"
+                        open={this.state.transcriptionDrawerOpen}
+                        onClose={() => this.setState({transcriptionDrawerOpen: !this.state.transcriptionDrawerOpen})}
+                    >
+                        <List className={classes.drawerList}>
+                            {this._getTranscriptionListComponent()}
+                        </List>
                     </Drawer>
                     <Snackbar
                         anchorOrigin={{ vertical: 'bottom', horizontal: 'center' }}
