@@ -114,8 +114,11 @@ class VideoRoom extends Component {
             remoteAudioMuted: false,
             transcription: new Map(),
             chat: new Set(),
-            participantList: new Map()
+            participantList: new Map(),
+            streamGridSizes: null
         };
+
+        this._streamsContainerRef = React.createRef();
 
         try {
             this._sip = new SipClient({
@@ -138,6 +141,21 @@ class VideoRoom extends Component {
 
         } catch(err) {
             this.setState({ snackOpen: true, errorMessage: err.message });
+        }
+
+        window.addEventListener('resize', this._windowResized.bind(this));
+    }
+
+    _windowResized() {
+        if (this._streamsContainerRef && this._streamsContainerRef.current) {
+            let size = this._streamsContainerRef.current.getBoundingClientRect();
+            this.setState({
+                streamGridSizes: {
+                    height: size.height,
+                    width: size.width,
+                    area: size.height * size.height
+                }
+            })
         }
     }
 
@@ -386,6 +404,13 @@ class VideoRoom extends Component {
         if (match.params.name) {
             this._sip.on('connected', () => {
                 this._sip.call(match.params.name, this.state.localStreams.get('local-camera'));
+
+                //make a new map with 30 video components in it
+                //let videoMap = new Map();
+                // for (let i = 0; i < 1; i++) {
+                //     videoMap.set(i, <Video key={i} muted={false} enableControls={true} inGrid={true}/>)
+                // }
+                //this.setState({streams: videoMap});
             });
             if (this._mqtt) {
                 try {
@@ -436,7 +461,6 @@ class VideoRoom extends Component {
 
     async componentDidMount () {
         await this.getStream();
-        //await this.getScreenShareMedia();
         this._boundOnSession = this.handleSession.bind(this);
         this._sip.on('session', this._boundOnSession);
     }
@@ -444,6 +468,10 @@ class VideoRoom extends Component {
     componentDidUpdate(prevProps) {
         if (prevProps.chosenAudioInput !== this.props.chosenAudioInput || prevProps.chosenVideoInput !== this.props.chosenVideoInput) {
             this.getStream();
+        }
+
+        if (this._streamsContainerRef && this._streamsContainerRef.current && !this.state.streamGridSizes) {
+            this._windowResized();
         }
     }
 
@@ -552,11 +580,24 @@ class VideoRoom extends Component {
         this.setState({selectedStream: stream});
     }
 
-    _renderStreams(streamsIterator, number) {
+    _renderStreams(streamsIterator, number, bigGrid = false) {
+        let height, width;
+        console.log(number);
+        if (bigGrid && this.state.streamGridSizes) {
+            if ( number > 1) {
+                console.log('working out the right square sizes')
+                height = width = Math.sqrt((this.state.streamGridSizes.area / number));
+            } else if (number === 1) {
+                console.log('only one');
+                height = this.state.streamGridSizes.height;
+                width = this.state.streamGridSizes.width;
+            }
+        }
+
         let streamComponents = [];
         for (let i = 0; i < number; i++) {
             let videoComponent = streamsIterator.next().value;
-            streamComponents.push(<Grid item key={i}>{videoComponent}</Grid>);
+            streamComponents.push(<Grid item key={i} style={{height, width}}>{videoComponent}</Grid>);
         }
         return streamComponents;
     }
@@ -571,12 +612,18 @@ class VideoRoom extends Component {
         return (<Grid
             className={classes.videoGrid}
             container
+            xl={false}
+            lg={false}
+            md={false}
+            sm={false}
+            xs={false}
             direction="row"
             justify="center"
             alignItems="center"
             spacing={2}
+            ref={this._streamsContainerRef}
         >
-            {this._renderStreams(streamsValue, numToRender)}
+            {this._renderStreams(streamsValue, numToRender, true)}
         </Grid>);
     }
 
@@ -637,7 +684,7 @@ class VideoRoom extends Component {
 
     render() {
         let { localStreams, streams, connect, screensharing, snackOpen, errorMessage, remoteAudioMuted, transcriptionDrawerOpen, chatDrawerOpen } = this.state;
-        let { classes, history }  = this.props;
+        let { classes, history, mqttUri }  = this.props;
 
         if (!connect) {
             return this._renderConnectModal();
@@ -648,14 +695,17 @@ class VideoRoom extends Component {
         localStreams.forEach((stream) => {
             streamContainerMap.set(stream.id, <Video key={stream.id} stream={stream} myStreamGrid={true} enableControls={true} muted={true}/>);
         });
+
         let localStreamsValue = streamContainerMap.values();
+
+        console.log(this.state.streamGridSizes)
 
         return (
             <Beforeunload onBeforeunload={this._terminate.bind(this)}>
                 <div className={clsx(classes.root, {
-                [classes.rootShiftLeft]: transcriptionDrawerOpen,
-                [classes.rootShiftRight]: chatDrawerOpen,
-            })}>
+                    [classes.rootShiftLeft]: transcriptionDrawerOpen,
+                    [classes.rootShiftRight]: chatDrawerOpen,
+                })}>
                     <TopBar>
                         { remoteAudioMuted ?
                             <IconButton edge='end' color='inherit' aria-label='Un-mmute Remote Audio'  onClick={this._toggleRemoteAudio.bind(this)}>
@@ -675,9 +725,11 @@ class VideoRoom extends Component {
                                 <ScreenShareIcon />
                             </IconButton>
                         }
-                        <IconButton edge='end' color='inherit' aria-label='Transcription'  onClick={() => this.setState({transcriptionDrawerOpen: !this.state.transcriptionDrawerOpen})}>
-                            <ForumIcon />
-                        </IconButton>
+                        { mqttUri && (
+                            <IconButton edge='end' color='inherit' aria-label='Transcription'  onClick={() => this.setState({transcriptionDrawerOpen: !this.state.transcriptionDrawerOpen})}>
+                                <ForumIcon />
+                            </IconButton>
+                        )}
                         <IconButton edge='end' color='inherit' aria-label='Chat'  onClick={() => this.setState({chatDrawerOpen: !this.state.chatDrawerOpen})}>
                             <ChatIcon />
                         </IconButton>

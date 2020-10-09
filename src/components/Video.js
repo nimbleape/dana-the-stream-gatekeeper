@@ -15,7 +15,8 @@ import {
 const styles = theme => ({
     root: {
         position: 'relative',
-        borderRadius: '5px'
+        height: '100%',
+        width: '100%'
     },
     selected: {
         borderWidth: '3px',
@@ -49,7 +50,8 @@ const styles = theme => ({
         height: '150px'
     },
     videoInGrid: {
-        height: '30vh'
+        height: '100%',
+        width: '100%'
     }
 });
 
@@ -186,11 +188,17 @@ class Video extends Component {
         }
 
         return (
-            <div onClick={() => {
-                if (onSelect) {
-                    onSelect(stream);
-                }
-            }} onMouseLeave={this.mouseOut.bind(this)} onMouseEnter={this.mouseOver.bind(this)} className={selectedClassNames}>
+            <div
+
+                onClick={() => {
+                    if (onSelect) {
+                        onSelect(stream);
+                    }
+                }}
+                onMouseLeave={this.mouseOut.bind(this)}
+                onMouseEnter={this.mouseOver.bind(this)}
+                className={selectedClassNames}
+            >
                 {channelData && channelData.caller && channelData.caller.name && (
                     <span className={classes.name}>
                         <Chip label={channelData.caller.name} color="secondary" />
@@ -216,7 +224,11 @@ class Video extends Component {
                 : null }
 
                 <video className={videoClassNames} ref={this._videoRef} autoPlay muted={muted}/>
-
+                {/* <video className={videoClassNames} controls ref={this._videoRef}>
+                    <source src="https://storage.googleapis.com/webfundamentals-assets/videos/chrome.webm" type="video/webm" />
+                    <source src="https://storage.googleapis.com/webfundamentals-assets/videos/chrome.mp4" type="video/mp4" />
+                    <p>This browser does not support the video element.</p>
+                </video> */}
             </div>
         );
     };
