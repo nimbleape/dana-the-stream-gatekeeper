@@ -34,7 +34,7 @@ const styles = theme => ({
         position: 'absolute',
         top: 0,
         width: '100%',
-        textAlign: 'center',
+        textAlign: 'left',
         zIndex: 100
     },
     video: {
