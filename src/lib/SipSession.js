@@ -83,7 +83,9 @@ export default class SipSession extends events.EventEmitter {
 				console.log(sdp);
 				sdp.media.forEach((media) => {
 					if (media.label) {
-						participantIds.set(media.label, media.msid);
+					    // Coerce media.label to a string for cases where
+					    // asterisk channel ids aren't prefixed with a hostname
+						participantIds.set(media.label + "", media.msid);
 					}
 				})
 				this.emit('participantLabelsUpdate', participantIds);

@@ -370,7 +370,9 @@ class VideoRoom extends Component {
         let participants = new Map();
         console.log('IDS', this._participantIds);
         msg.channels.forEach((channel) => {
-            participants.set(channel.id, {...channel, msids: this._participantIds.get(channel.id)})
+            // Coerce channel.id to a string for cases where
+            // asterisk channel ids aren't prefixed with a hostname
+            participants.set(channel.id, {...channel, msids: this._participantIds.get(channel.id + "")})
         });
 
         this.setState({participantList: participants});
