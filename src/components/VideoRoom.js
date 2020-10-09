@@ -370,7 +370,7 @@ class VideoRoom extends Component {
         let participants = new Map();
         console.log('IDS', this._participantIds);
         msg.channels.forEach((channel) => {
-            participants.set(channel.id, {...channel, msids: this._participantIds.get(channel.id/1)})
+            participants.set(channel.id, {...channel, msids: this._participantIds.get(channel.id)})
         });
 
         this.setState({participantList: participants});
