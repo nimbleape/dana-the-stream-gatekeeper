@@ -199,9 +199,7 @@ class VideoRoom extends Component {
                 }
             });
 
-            track.onended = () => {
-                this._stopScreenShare();
-            };
+            track.onended = this._stopScreenShare.bind(this);
         } catch(err) {
             this.setState({ snackOpen: true, errorMessage: err.message });
         }
@@ -551,10 +549,15 @@ class VideoRoom extends Component {
         }
     }
 
-    _stopScreenShare() {
+    _stopScreenShare(evt) {
+        console.log('STOPPING SCREENSHARE', evt);
+
         const { session } = this.state;
 
-        this._screenshareTransceiver && this._screenshareTransceiver.stop();
+        if (this._screenshareTransceiver) {
+            this._screenshareTransceiver.stop();
+            this._screenshareTransceiver = null;
+        }
 
         let screenShareStream = this.state.localStreams.get('screen-share');
         if (screenShareStream) {
