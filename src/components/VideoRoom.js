@@ -174,8 +174,8 @@ class VideoRoom extends Component {
     }
 
     async getScreenShareMedia() {
-        let stream;
         try {
+            let stream;
             stream = await navigator.mediaDevices.getDisplayMedia({
                 video: {
                     cursor: 'always'
@@ -200,11 +200,13 @@ class VideoRoom extends Component {
             });
 
             track.onended = this._stopScreenShare.bind(this);
+            return stream;
         } catch(err) {
             this.setState({ snackOpen: true, errorMessage: err.message });
+            return false;
         }
 
-        return stream;
+
     }
 
     async getStream() {
@@ -540,12 +542,15 @@ class VideoRoom extends Component {
             //go add the screen share track (from the screenShareStream) into the localStream
             let screenShareStream = await this.getScreenShareMedia();
 
-            this._screenshareTransceiver = session.jssipRtcSession.connection.addTransceiver(screenShareStream.getVideoTracks()[0], {direction: 'sendonly', streams: [screenShareStream]});
+            if (screenShareStream) {
 
-            if(session.jssipRtcSession.renegotiate()) {
-                console.log('renegotiating adding screenshare');
+                this._screenshareTransceiver = session.jssipRtcSession.connection.addTransceiver(screenShareStream.getVideoTracks()[0], {direction: 'sendonly', streams: [screenShareStream]});
+
+                if(session.jssipRtcSession.renegotiate()) {
+                    console.log('renegotiating adding screenshare');
+                }
+                this.setState({screensharing: true});
             }
-            this.setState({screensharing: true});
         }
     }
 
@@ -553,8 +558,8 @@ class VideoRoom extends Component {
         console.log('STOPPING SCREENSHARE', evt);
 
         const { session } = this.state;
-
-        if (this._screenshareTransceiver) {
+        console.log('TRANSCIEVER', this._screenshareTransceiver);
+        if (this._screenshareTransceiver && typeof this._screenshareTransceiver.stop === "function" ) {
             this._screenshareTransceiver.stop();
             this._screenshareTransceiver = null;
         }
